@@ -51,6 +51,16 @@
   .logo h1 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 17px; }
   .header-actions { display: flex; gap: 6px; align-items: center; }
 
+  /* Autosave pill */
+  #save-indicator {
+    font-size: 10px; color: var(--text-light); letter-spacing: 0.02em;
+    padding: 3px 8px; border-radius: 10px; border: 1px solid var(--border);
+    transition: all 0.3s; white-space: nowrap;
+    display: none; /* shown only when session exists */
+  }
+  #save-indicator.saved  { color: #2d9d5e; border-color: rgba(45,157,94,0.3); background: rgba(45,157,94,0.06); }
+  #save-indicator.saving { color: var(--text-muted); }
+
   .btn {
     padding: 6px 14px; font-size: 12px; font-weight: 500;
     font-family: 'IBM Plex Sans', sans-serif; border: 1px solid var(--border);
@@ -105,6 +115,16 @@
   }
   #paste-input:focus { border-color: var(--accent); }
   .paste-hint { font-size: 11px; color: var(--text-light); margin-top: 12px; }
+
+  /* Restore banner */
+  #restore-banner {
+    display: none;
+    background: var(--surface-alt); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; font-size: 12px; color: var(--text-muted);
+    align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  #restore-banner span { flex: 1; }
+  #restore-banner .restore-actions { display: flex; gap: 8px; }
 
   #editor-layout { flex: 1; display: flex; overflow: hidden; }
   #doc-panel { flex: 1; overflow: auto; padding: 28px 32px; position: relative; }
@@ -277,8 +297,19 @@
     <div class="logo-icon">&#9998;</div>
     <h1>Red Pen</h1>
   </div>
-  <div class="header-actions" id="header-actions"></div>
+  <div class="header-actions" id="header-actions">
+    <span id="save-indicator"></span>
+  </div>
 </header>
+
+<!-- Restore banner (shown on load if saved session exists) -->
+<div id="restore-banner">
+  <span id="restore-text"></span>
+  <div class="restore-actions">
+    <button class="btn-small" id="restore-dismiss-btn">Dismiss</button>
+    <button class="btn-small danger" id="restore-clear-btn">Clear saved session</button>
+  </div>
+</div>
 
 <div id="main">
   <div id="paste-screen">
@@ -357,6 +388,8 @@
 (function() {
   'use strict';
 
+  var STORAGE_KEY = 'redpen_session_v1';
+
   // ── State ────────────────────────────────────────────────
   var docText = '';
   var annotations = [];
@@ -367,13 +400,6 @@
   var sidebarVisible = true;
   var currentView = 'paste';
   var promptEdited = null;
-
-  /**
-   * sourceMap: Int32Array where sourceMap[renderedCharIndex] = rawCharIndex.
-   * Built once when docText is set. Lets us convert any DOM text offset
-   * (which is in rendered space) back to an exact raw offset instantly and
-   * correctly, even when markdown syntax strips characters.
-   */
   var sourceMap = null;
 
   var COLORS = [
@@ -387,203 +413,216 @@
   function genId() { return Math.random().toString(36).substr(2, 9); }
 
   // ── DOM refs ─────────────────────────────────────────────
-  var body            = document.body;
-  var pasteScreen     = document.getElementById('paste-screen');
-  var editorLayout    = document.getElementById('editor-layout');
-  var exportViewEl    = document.getElementById('export-view');
-  var headerActions   = document.getElementById('header-actions');
-  var docContent      = document.getElementById('doc-content');
-  var docPanel        = document.getElementById('doc-panel');
-  var docWrapper      = document.getElementById('doc-wrapper');
-  var hlOverlay       = document.getElementById('highlight-overlay');
-  var sidebar         = document.getElementById('sidebar');
-  var sidebarTitle    = document.getElementById('sidebar-title');
-  var sidebarBody     = document.getElementById('sidebar-body');
-  var sidebarEmpty    = document.getElementById('sidebar-empty');
-  var sidebarFooter   = document.getElementById('sidebar-footer');
-  var clearAllBtn     = document.getElementById('clear-all-btn');
-  var popoverEl       = document.getElementById('popover');
-  var popoverExcerpt  = document.getElementById('popover-excerpt');
-  var commentInput    = document.getElementById('comment-input');
-  var popoverCancel   = document.getElementById('popover-cancel');
-  var popoverAdd      = document.getElementById('popover-add');
-  var popoverHint     = document.getElementById('popover-hint');
-  var goExportBtn     = document.getElementById('go-export-btn');
-  var copyBtn         = document.getElementById('copy-btn');
-  var globalNoteInput = document.getElementById('global-note-input');
-  var promptTextarea  = document.getElementById('prompt-textarea');
-  var resetPromptBtn  = document.getElementById('reset-prompt-btn');
-  var pasteInput      = document.getElementById('paste-input');
+  var body              = document.body;
+  var pasteScreen       = document.getElementById('paste-screen');
+  var editorLayout      = document.getElementById('editor-layout');
+  var exportViewEl      = document.getElementById('export-view');
+  var headerActions     = document.getElementById('header-actions');
+  var saveIndicator     = document.getElementById('save-indicator');
+  var restoreBanner     = document.getElementById('restore-banner');
+  var restoreText       = document.getElementById('restore-text');
+  var restoreDismissBtn = document.getElementById('restore-dismiss-btn');
+  var restoreClearBtn   = document.getElementById('restore-clear-btn');
+  var docContent        = document.getElementById('doc-content');
+  var docPanel          = document.getElementById('doc-panel');
+  var docWrapper        = document.getElementById('doc-wrapper');
+  var hlOverlay         = document.getElementById('highlight-overlay');
+  var sidebar           = document.getElementById('sidebar');
+  var sidebarTitle      = document.getElementById('sidebar-title');
+  var sidebarBody       = document.getElementById('sidebar-body');
+  var sidebarEmpty      = document.getElementById('sidebar-empty');
+  var sidebarFooter     = document.getElementById('sidebar-footer');
+  var clearAllBtn       = document.getElementById('clear-all-btn');
+  var popoverEl         = document.getElementById('popover');
+  var popoverExcerpt    = document.getElementById('popover-excerpt');
+  var commentInput      = document.getElementById('comment-input');
+  var popoverCancel     = document.getElementById('popover-cancel');
+  var popoverAdd        = document.getElementById('popover-add');
+  var popoverHint       = document.getElementById('popover-hint');
+  var goExportBtn       = document.getElementById('go-export-btn');
+  var copyBtn           = document.getElementById('copy-btn');
+  var globalNoteInput   = document.getElementById('global-note-input');
+  var promptTextarea    = document.getElementById('prompt-textarea');
+  var resetPromptBtn    = document.getElementById('reset-prompt-btn');
+  var pasteInput        = document.getElementById('paste-input');
+
+  // ── Autosave ─────────────────────────────────────────────
+  var saveDebounce = null;
+
+  function saveSession() {
+    if (!docText) return;
+    try {
+      var payload = {
+        docText: docText,
+        annotations: annotations,
+        savedAt: Date.now(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      flashSaved();
+    } catch(e) {
+      // localStorage full or unavailable — fail silently
+    }
+  }
+
+  function scheduleSave() {
+    showSaving();
+    if (saveDebounce) clearTimeout(saveDebounce);
+    saveDebounce = setTimeout(saveSession, 800);
+  }
+
+  function clearSession() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+    saveIndicator.style.display = 'none';
+  }
+
+  function showSaving() {
+    saveIndicator.style.display = '';
+    saveIndicator.className = 'saving';
+    saveIndicator.textContent = 'Saving\u2026';
+  }
+
+  function flashSaved() {
+    saveIndicator.style.display = '';
+    saveIndicator.className = 'saved';
+    saveIndicator.textContent = '\u2713 Saved';
+    setTimeout(function() {
+      // Fade back to subtle state after 2s
+      saveIndicator.className = '';
+      saveIndicator.textContent = 'Auto-saved';
+    }, 2000);
+  }
+
+  function loadSession() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      var payload = JSON.parse(raw);
+      if (!payload || !payload.docText) return;
+
+      // Show restore banner — don't auto-restore silently
+      var age = Date.now() - (payload.savedAt || 0);
+      var ageStr = age < 60000 ? 'just now'
+                 : age < 3600000 ? Math.round(age / 60000) + 'm ago'
+                 : age < 86400000 ? Math.round(age / 3600000) + 'h ago'
+                 : Math.round(age / 86400000) + 'd ago';
+
+      var annCount = (payload.annotations || []).length;
+      var docPreview = payload.docText.slice(0, 60).replace(/\n/g, ' ');
+      restoreText.textContent =
+        '\u21BA Session restored (' + ageStr + '): \u201C' + docPreview +
+        (payload.docText.length > 60 ? '\u2026' : '') + '\u201D' +
+        (annCount > 0 ? ' \u00B7 ' + annCount + ' note' + (annCount !== 1 ? 's' : '') : '');
+
+      restoreBanner.style.display = 'flex';
+
+      // Actually restore the session
+      docText = payload.docText;
+      annotations = payload.annotations || [];
+      _lineStarts = null;
+      var result = buildDoc(docText);
+      sourceMap = result.map;
+      docContent.innerHTML = result.html;
+      showEditor();
+
+      saveIndicator.style.display = '';
+      saveIndicator.className = '';
+      saveIndicator.textContent = 'Auto-saved';
+    } catch(e) {
+      // Corrupt data — clear it
+      try { localStorage.removeItem(STORAGE_KEY); } catch(e2) {}
+    }
+  }
+
+  restoreDismissBtn.addEventListener('click', function() {
+    restoreBanner.style.display = 'none';
+  });
+
+  restoreClearBtn.addEventListener('click', function() {
+    clearSession();
+    restoreBanner.style.display = 'none';
+    resetAll();
+    showPaste();
+  });
 
   // ── Source-mapped markdown renderer ──────────────────────
-  //
-  // Returns { html: string, map: Int32Array }
-  // map[renderedCharPos] = rawCharPos
-  //
-  // Every visible character emitted into HTML carries a mapping entry.
-  // Markdown syntax characters (**, *, #, `, etc.) are consumed from raw
-  // but produce no rendered output, so they simply advance rawPos without
-  // adding map entries.
-  //
-  // HTML tags are transparent — they add no map entries either.
-  // Only actual text characters (what the browser shows) get entries.
-
   function buildDoc(raw) {
     if (!raw) return { html: '', map: new Int32Array(0) };
 
-    // We accumulate rendered chars and their raw positions in parallel arrays,
-    // then build the final Int32Array at the end for efficiency.
-    var renderedChars = [];   // the actual characters emitted
-    var rawPositions  = [];   // parallel: rawPos for renderedChars[i]
-    var htmlParts     = [];   // the full HTML string fragments
+    var rawPositions = [];
+    var htmlParts    = [];
 
     var lines = raw.split('\n');
-    var lineStart = 0; // raw offset of the first char of current line
 
-    function emitHtml(str) {
-      htmlParts.push(str);
-    }
+    function emitHtml(str) { htmlParts.push(str); }
 
-    // Emit a visible text string, recording raw positions for each char.
-    // rawOff: raw offset of the first char of `text` within `raw`.
     function emitText(text, rawOff) {
       htmlParts.push(escHtml(text));
-      for (var k = 0; k < text.length; k++) {
-        renderedChars.push(text[k]);
-        rawPositions.push(rawOff + k);
-      }
+      for (var k = 0; k < text.length; k++) rawPositions.push(rawOff + k);
     }
 
-    // Process inline markdown within a span of raw text [rawOff, rawOff+len).
-    // Strips **, *, `, [...](url), etc. and emits with correct raw positions.
     function emitInline(text, rawOff) {
       var i = 0;
       while (i < text.length) {
-        // Bold+italic: ***text***
         if (text[i] === '*' && text[i+1] === '*' && text[i+2] === '*') {
           var end = text.indexOf('***', i + 3);
-          if (end !== -1) {
-            emitHtml('<strong><em>');
-            emitInline(text.slice(i+3, end), rawOff + i + 3);
-            emitHtml('</em></strong>');
-            i = end + 3; continue;
-          }
+          if (end !== -1) { emitHtml('<strong><em>'); emitInline(text.slice(i+3, end), rawOff+i+3); emitHtml('</em></strong>'); i = end+3; continue; }
         }
-        // Bold: **text**
         if (text[i] === '*' && text[i+1] === '*') {
           var end = text.indexOf('**', i + 2);
-          if (end !== -1) {
-            emitHtml('<strong>');
-            emitInline(text.slice(i+2, end), rawOff + i + 2);
-            emitHtml('</strong>');
-            i = end + 2; continue;
-          }
+          if (end !== -1) { emitHtml('<strong>'); emitInline(text.slice(i+2, end), rawOff+i+2); emitHtml('</strong>'); i = end+2; continue; }
         }
-        // Italic: *text*
         if (text[i] === '*' && text[i+1] !== '*') {
           var end = text.indexOf('*', i + 1);
-          if (end !== -1) {
-            emitHtml('<em>');
-            emitInline(text.slice(i+1, end), rawOff + i + 1);
-            emitHtml('</em>');
-            i = end + 1; continue;
-          }
+          if (end !== -1) { emitHtml('<em>'); emitInline(text.slice(i+1, end), rawOff+i+1); emitHtml('</em>'); i = end+1; continue; }
         }
-        // Inline code: `code`
         if (text[i] === '`') {
           var end = text.indexOf('`', i + 1);
-          if (end !== -1) {
-            emitHtml('<code>');
-            emitText(text.slice(i+1, end), rawOff + i + 1);
-            emitHtml('</code>');
-            i = end + 1; continue;
-          }
+          if (end !== -1) { emitHtml('<code>'); emitText(text.slice(i+1, end), rawOff+i+1); emitHtml('</code>'); i = end+1; continue; }
         }
-        // Link: [label](url)
         if (text[i] === '[') {
-          var closeBracket = text.indexOf(']', i + 1);
-          if (closeBracket !== -1 && text[closeBracket+1] === '(') {
-            var closeParen = text.indexOf(')', closeBracket + 2);
-            if (closeParen !== -1) {
-              var url = text.slice(closeBracket + 2, closeParen);
-              emitHtml('<a href="' + escHtml(url) + '" target="_blank">');
-              emitInline(text.slice(i+1, closeBracket), rawOff + i + 1);
-              emitHtml('</a>');
-              i = closeParen + 1; continue;
-            }
+          var cb = text.indexOf(']', i + 1);
+          if (cb !== -1 && text[cb+1] === '(') {
+            var cp = text.indexOf(')', cb + 2);
+            if (cp !== -1) { emitHtml('<a href="'+escHtml(text.slice(cb+2,cp))+'" target="_blank">'); emitInline(text.slice(i+1,cb), rawOff+i+1); emitHtml('</a>'); i = cp+1; continue; }
           }
         }
-        // Plain character — emit with its raw position
-        var ch = text[i];
-        var rawCh = raw[rawOff + i] || ch; // same char, just being explicit
-        htmlParts.push(escHtml(ch));
-        renderedChars.push(ch);
+        htmlParts.push(escHtml(text[i]));
         rawPositions.push(rawOff + i);
         i++;
       }
     }
 
-    function escHtml(s) {
-      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
+    function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
     var i = 0;
     while (i < lines.length) {
       var line = lines[i];
-      var rawLineOff = lineStart;
+      var rawLineOff = computeLineStart(raw, lines, i);
 
-      // Fenced code block
       if (line.match(/^```/)) {
-        emitHtml('<pre><code>');
-        i++;
+        emitHtml('<pre><code>'); i++;
         while (i < lines.length && !lines[i].match(/^```/)) {
-          var codeLine = lines[i];
-          var codeLineStart = lineStart + (i > 0 ? 1 : 0);
-          // Recompute lineStart for code lines
-          var codeRawOff = computeLineStart(raw, lines, i);
-          emitText(codeLine, codeRawOff);
-          if (i + 1 < lines.length && !lines[i+1].match(/^```/)) {
-            emitText('\n', codeRawOff + codeLine.length);
-          }
+          var cro = computeLineStart(raw, lines, i);
+          emitText(lines[i], cro);
+          if (i+1 < lines.length && !lines[i+1].match(/^```/)) emitText('\n', cro + lines[i].length);
           i++;
         }
-        emitHtml('</code></pre>');
-        i++;
-        lineStart = computeLineStart(raw, lines, i);
-        continue;
+        emitHtml('</code></pre>'); i++; continue;
       }
 
-      // Table
       if (line.match(/^\|/)) {
         var tls = [], tlStarts = [];
-        while (i < lines.length && lines[i].match(/^\|/)) {
-          tls.push(lines[i]);
-          tlStarts.push(computeLineStart(raw, lines, i));
-          i++;
-        }
-        lineStart = computeLineStart(raw, lines, i);
+        while (i < lines.length && lines[i].match(/^\|/)) { tls.push(lines[i]); tlStarts.push(computeLineStart(raw, lines, i)); i++; }
         if (tls.length >= 2) {
           emitHtml('<table><thead><tr>');
-          var headerCells = tls[0].split('|').slice(1, -1);
-          var cellOff = tlStarts[0] + 1; // skip leading |
-          for (var ci = 0; ci < headerCells.length; ci++) {
-            emitHtml('<th>');
-            emitInline(headerCells[ci].trim(), cellOff + (headerCells[ci].length - headerCells[ci].trimLeft().length));
-            emitHtml('</th>');
-            cellOff += headerCells[ci].length + 1;
-          }
+          var hc = tls[0].split('|').slice(1,-1), ho = tlStarts[0]+1;
+          for (var ci=0; ci<hc.length; ci++) { emitHtml('<th>'); emitInline(hc[ci].trim(), ho+(hc[ci].length-hc[ci].trimLeft().length)); emitHtml('</th>'); ho+=hc[ci].length+1; }
           emitHtml('</tr></thead><tbody>');
-          for (var ti = 1; ti < tls.length; ti++) {
+          for (var ti=1; ti<tls.length; ti++) {
             if (/^[\s|:-]+$/.test(tls[ti])) continue;
             emitHtml('<tr>');
-            var rowCells = tls[ti].split('|').slice(1, -1);
-            var rowOff = tlStarts[ti] + 1;
-            for (var ci2 = 0; ci2 < rowCells.length; ci2++) {
-              emitHtml('<td>');
-              emitInline(rowCells[ci2].trim(), rowOff + (rowCells[ci2].length - rowCells[ci2].trimLeft().length));
-              emitHtml('</td>');
-              rowOff += rowCells[ci2].length + 1;
-            }
+            var rc = tls[ti].split('|').slice(1,-1), ro2 = tlStarts[ti]+1;
+            for (var ci2=0; ci2<rc.length; ci2++) { emitHtml('<td>'); emitInline(rc[ci2].trim(), ro2+(rc[ci2].length-rc[ci2].trimLeft().length)); emitHtml('</td>'); ro2+=rc[ci2].length+1; }
             emitHtml('</tr>');
           }
           emitHtml('</tbody></table>');
@@ -591,91 +630,37 @@
         continue;
       }
 
-      // Headings
       var hm = line.match(/^(#{1,4}) (.+)$/);
-      if (hm) {
-        var lvl = hm[1].length;
-        emitHtml('<h' + lvl + '>');
-        emitInline(hm[2], rawLineOff + lvl + 1);
-        emitHtml('</h' + lvl + '>');
-        i++; lineStart = computeLineStart(raw, lines, i); continue;
-      }
-
-      // HR
-      if (line.match(/^(---|\*\*\*|___)$/)) {
-        emitHtml('<hr/>');
-        i++; lineStart = computeLineStart(raw, lines, i); continue;
-      }
-
-      // Blockquote
+      if (hm) { emitHtml('<h'+hm[1].length+'>'); emitInline(hm[2], rawLineOff+hm[1].length+1); emitHtml('</h'+hm[1].length+'>'); i++; continue; }
+      if (line.match(/^(---|\*\*\*|___)$/)) { emitHtml('<hr/>'); i++; continue; }
       var bq = line.match(/^> (.+)$/);
-      if (bq) {
-        emitHtml('<blockquote>');
-        emitInline(bq[1], rawLineOff + 2);
-        emitHtml('</blockquote>');
-        i++; lineStart = computeLineStart(raw, lines, i); continue;
-      }
+      if (bq) { emitHtml('<blockquote>'); emitInline(bq[1], rawLineOff+2); emitHtml('</blockquote>'); i++; continue; }
 
-      // Unordered list
       if (line.match(/^[-*] /)) {
         emitHtml('<ul>');
-        while (i < lines.length && lines[i].match(/^[-*] /)) {
-          var ulLineOff = computeLineStart(raw, lines, i);
-          emitHtml('<li>');
-          emitInline(lines[i].slice(2), ulLineOff + 2);
-          emitHtml('</li>');
-          i++;
-        }
-        emitHtml('</ul>');
-        lineStart = computeLineStart(raw, lines, i);
-        continue;
+        while (i < lines.length && lines[i].match(/^[-*] /)) { var ulo=computeLineStart(raw,lines,i); emitHtml('<li>'); emitInline(lines[i].slice(2), ulo+2); emitHtml('</li>'); i++; }
+        emitHtml('</ul>'); continue;
       }
-
-      // Ordered list
       if (line.match(/^\d+\. /)) {
         emitHtml('<ol>');
-        while (i < lines.length && lines[i].match(/^\d+\. /)) {
-          var olLineOff = computeLineStart(raw, lines, i);
-          var prefix = lines[i].match(/^\d+\. /)[0];
-          emitHtml('<li>');
-          emitInline(lines[i].slice(prefix.length), olLineOff + prefix.length);
-          emitHtml('</li>');
-          i++;
-        }
-        emitHtml('</ol>');
-        lineStart = computeLineStart(raw, lines, i);
-        continue;
+        while (i < lines.length && lines[i].match(/^\d+\. /)) { var olo=computeLineStart(raw,lines,i); var pfx=lines[i].match(/^\d+\. /)[0]; emitHtml('<li>'); emitInline(lines[i].slice(pfx.length), olo+pfx.length); emitHtml('</li>'); i++; }
+        emitHtml('</ol>'); continue;
       }
-
-      // Empty line
-      if (line.trim() === '') {
-        i++; lineStart = computeLineStart(raw, lines, i); continue;
-      }
-
-      // Paragraph
-      emitHtml('<p>');
-      emitInline(line, rawLineOff);
-      emitHtml('</p>');
-      i++; lineStart = computeLineStart(raw, lines, i);
+      if (line.trim() === '') { i++; continue; }
+      emitHtml('<p>'); emitInline(line, rawLineOff); emitHtml('</p>'); i++;
     }
 
-    // Build Int32Array map: map[renderedPos] = rawPos
     var map = new Int32Array(rawPositions.length);
     for (var m = 0; m < rawPositions.length; m++) map[m] = rawPositions[m];
-
     return { html: htmlParts.join(''), map: map };
   }
 
-  // Pre-compute cumulative line start offsets once, reused by computeLineStart.
   var _lineStarts = null;
   function computeLineStart(raw, lines, lineIndex) {
     if (!_lineStarts || _lineStarts.length !== lines.length + 1) {
       _lineStarts = new Int32Array(lines.length + 1);
       var off = 0;
-      for (var li = 0; li < lines.length; li++) {
-        _lineStarts[li] = off;
-        off += lines[li].length + 1; // +1 for \n
-      }
+      for (var li = 0; li < lines.length; li++) { _lineStarts[li] = off; off += lines[li].length + 1; }
       _lineStarts[lines.length] = off;
     }
     return lineIndex < _lineStarts.length ? _lineStarts[lineIndex] : raw.length;
@@ -709,7 +694,10 @@
   }
 
   function renderHeaderActions() {
+    // Preserve the save indicator element — rebuild everything else
     headerActions.innerHTML = '';
+    headerActions.appendChild(saveIndicator);
+
     var t = document.createElement('button');
     t.className = 'btn-icon'; t.title = 'Toggle theme';
     t.textContent = dark ? '\u2600\uFE0F' : '\uD83C\uDF19';
@@ -720,7 +708,7 @@
       var nb = document.createElement('button'); nb.className = 'btn'; nb.textContent = 'New';
       nb.addEventListener('click', function() {
         if (annotations.length > 0 && !confirm('Clear all and start fresh?')) return;
-        resetAll(); showPaste();
+        clearSession(); resetAll(); showPaste();
       });
       headerActions.appendChild(nb);
 
@@ -749,7 +737,7 @@
     sidebarVisible = !sidebarVisible;
     sidebar.classList.toggle('hidden', !sidebarVisible);
     renderHeaderActions();
-    scheduleHighlightRebuild(350); // wait for 0.3s CSS transition
+    scheduleHighlightRebuild(350);
   }
 
   function resetAll() {
@@ -762,8 +750,6 @@
   // ── Paste ────────────────────────────────────────────────
   var parseDebounce = null;
   pasteInput.addEventListener('input', function() {
-    // Debounce the render so we don't thrash on every keystroke,
-    // but switch view immediately so the user sees feedback.
     if (pasteInput.value.trim()) {
       clearTimeout(parseDebounce);
       parseDebounce = setTimeout(function() {
@@ -773,6 +759,7 @@
         sourceMap = result.map;
         docContent.innerHTML = result.html;
         showEditor();
+        scheduleSave();
       }, 150);
     }
   });
@@ -787,60 +774,34 @@
     var range = sel.getRangeAt(0);
     if (!sel.toString().trim()) return;
 
-    // Get rendered char offsets via TreeWalker
     var walker = document.createTreeWalker(docContent, NodeFilter.SHOW_TEXT, null, false);
     var charCount = 0, rendStart = null, rendEnd = null;
     while (walker.nextNode()) {
       var node = walker.currentNode;
-      var len = node.textContent.length;
       if (node === range.startContainer) rendStart = charCount + range.startOffset;
       if (node === range.endContainer)   { rendEnd = charCount + range.endOffset; break; }
-      charCount += len;
+      charCount += node.textContent.length;
     }
     if (rendStart === null || rendEnd === null || rendStart >= rendEnd) return;
 
-    // Clamp to sourceMap bounds
     rendStart = Math.max(0, Math.min(rendStart, sourceMap.length - 1));
     rendEnd   = Math.max(0, Math.min(rendEnd,   sourceMap.length));
 
-    // Direct lookup — O(1), exact, no string search
     var rawStart = sourceMap[rendStart];
-    // For end, use the raw position AFTER the last selected rendered char.
-    // We want the raw index just past the selection, so we look up rendEnd-1
-    // and add however many raw chars correspond to that last rendered char.
-    var rawEnd;
-    if (rendEnd >= sourceMap.length) {
-      rawEnd = docText.length;
-    } else {
-      rawEnd = sourceMap[rendEnd];
-    }
-
+    var rawEnd   = rendEnd >= sourceMap.length ? docText.length : sourceMap[rendEnd];
     if (rawEnd <= rawStart) return;
 
-    var hasOverlap = annotations.some(function(a) {
-      return rawStart < a.endOffset && rawEnd > a.startOffset;
-    });
+    var hasOverlap = annotations.some(function(a) { return rawStart < a.endOffset && rawEnd > a.startOffset; });
     if (hasOverlap) { sel.removeAllRanges(); return; }
 
-    pendingPopover = {
-      startOffset: rawStart,
-      endOffset:   rawEnd,
-      // The displayed text is the raw slice — this is what goes into the export prompt.
-      // It correctly includes markdown syntax (e.g. **bold**) which is what you want
-      // when sending back to Claude.
-      text: docText.slice(rawStart, rawEnd),
-    };
+    pendingPopover = { startOffset: rawStart, endOffset: rawEnd, text: docText.slice(rawStart, rawEnd) };
     showPopover(pendingPopover.text);
     sel.removeAllRanges();
   }
 
   function showPopover(text) {
-    // Show rendered preview (strip markdown syntax for display only)
-    var preview = text.replace(/\*\*\*(.+?)\*\*\*/g, '$1')
-                      .replace(/\*\*(.+?)\*\*/g, '$1')
-                      .replace(/\*(.+?)\*/g, '$1')
-                      .replace(/`([^`]+)`/g, '$1');
-    popoverExcerpt.textContent = '\u201C' + (preview.length > 120 ? preview.slice(0,120) + '\u2026' : preview) + '\u201D';
+    var preview = text.replace(/\*\*\*(.+?)\*\*\*/g,'$1').replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/`([^`]+)`/g,'$1');
+    popoverExcerpt.textContent = '\u201C' + (preview.length > 120 ? preview.slice(0,120)+'\u2026' : preview) + '\u201D';
     commentInput.value = '';
     var isMac = (navigator.userAgentData ? navigator.userAgentData.platform : navigator.platform || '').indexOf('Mac') > -1;
     popoverHint.textContent = (isMac ? '\u2318' : 'Ctrl') + '+Enter to save \u00B7 Esc to cancel';
@@ -848,11 +809,7 @@
     setTimeout(function() { commentInput.focus(); }, 50);
   }
 
-  function hidePopover() {
-    popoverEl.classList.remove('visible');
-    pendingPopover = null;
-    commentInput.value = '';
-  }
+  function hidePopover() { popoverEl.classList.remove('visible'); pendingPopover = null; commentInput.value = ''; }
 
   popoverCancel.addEventListener('click', hidePopover);
   popoverAdd.addEventListener('click', addAnnotation);
@@ -867,16 +824,13 @@
   function addAnnotation() {
     if (!pendingPopover) return;
     annotations.push({
-      id:          genId(),
-      startOffset: pendingPopover.startOffset,
-      endOffset:   pendingPopover.endOffset,
-      text:        pendingPopover.text,
-      comment:     commentInput.value.trim(),
-      // Colour assigned permanently at creation — won't shift when others are deleted
-      color:       annotations.length % COLORS.length,
+      id: genId(), startOffset: pendingPopover.startOffset, endOffset: pendingPopover.endOffset,
+      text: pendingPopover.text, comment: commentInput.value.trim(),
+      color: annotations.length % COLORS.length,
     });
-    annotations.sort(function(a, b) { return a.startOffset - b.startOffset; });
+    annotations.sort(function(a,b) { return a.startOffset - b.startOffset; });
     hidePopover(); renderSidebar(); scheduleHighlightRebuild(); renderHeaderActions();
+    scheduleSave();
   }
 
   function removeAnnotation(id) {
@@ -884,13 +838,13 @@
     if (activeAnnotation === id) activeAnnotation = null;
     if (editingAnnotation === id) editingAnnotation = null;
     renderSidebar(); scheduleHighlightRebuild(); renderHeaderActions();
+    scheduleSave();
   }
 
   function updateAnnotationComment(id, comment) {
-    annotations = annotations.map(function(a) {
-      return a.id === id ? Object.assign({}, a, { comment: comment }) : a;
-    });
+    annotations = annotations.map(function(a) { return a.id === id ? Object.assign({}, a, { comment: comment }) : a; });
     editingAnnotation = null; renderSidebar();
+    scheduleSave();
   }
 
   // ── Sidebar ──────────────────────────────────────────────
@@ -899,48 +853,25 @@
     sidebarTitle.textContent = 'Notes' + (count > 0 ? ' (' + count + ')' : '');
     clearAllBtn.style.display = count > 0 ? '' : 'none';
     sidebarFooter.style.display = count > 0 ? '' : 'none';
-
-    if (count === 0) {
-      sidebarBody.innerHTML = '';
-      sidebarBody.appendChild(sidebarEmpty);
-      sidebarEmpty.style.display = '';
-      return;
-    }
-
-    sidebarEmpty.style.display = 'none';
-    sidebarBody.innerHTML = '';
+    if (count === 0) { sidebarBody.innerHTML = ''; sidebarBody.appendChild(sidebarEmpty); sidebarEmpty.style.display = ''; return; }
+    sidebarEmpty.style.display = 'none'; sidebarBody.innerHTML = '';
 
     annotations.forEach(function(ann, i) {
       var c = COLORS[ann.color];
       var isActive  = activeAnnotation  === ann.id;
       var isEditing = editingAnnotation === ann.id;
-
       var item = document.createElement('div');
       item.className = 'ann-item' + (isActive ? ' active' : '');
       item.style.setProperty('--ann-color-border', c.border);
       item.style.setProperty('--ann-color-bg', c.bg);
-      item.addEventListener('click', function() {
-        activeAnnotation = (activeAnnotation === ann.id) ? null : ann.id;
-        renderSidebar(); scheduleHighlightRebuild();
-      });
-
+      item.addEventListener('click', function() { activeAnnotation = (activeAnnotation === ann.id) ? null : ann.id; renderSidebar(); scheduleHighlightRebuild(); });
       var row = document.createElement('div'); row.className = 'ann-row';
-      var badge = document.createElement('div'); badge.className = 'ann-badge';
-      badge.style.backgroundColor = c.border; badge.textContent = i + 1;
-
+      var badge = document.createElement('div'); badge.className = 'ann-badge'; badge.style.backgroundColor = c.border; badge.textContent = i + 1;
       var bodyDiv = document.createElement('div'); bodyDiv.className = 'ann-body';
-
-      // Strip markdown from excerpt display
-      var displayText = ann.text
-        .replace(/\*\*\*(.+?)\*\*\*/g, '$1')
-        .replace(/\*\*(.+?)\*\*/g, '$1')
-        .replace(/\*(.+?)\*/g, '$1')
-        .replace(/`([^`]+)`/g, '$1');
-      var excerpt = document.createElement('div'); excerpt.className = 'ann-excerpt';
-      excerpt.style.backgroundColor = c.bg;
-      excerpt.textContent = '\u201C' + (displayText.length > 45 ? displayText.slice(0,45) + '\u2026' : displayText) + '\u201D';
+      var displayText = ann.text.replace(/\*\*\*(.+?)\*\*\*/g,'$1').replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/`([^`]+)`/g,'$1');
+      var excerpt = document.createElement('div'); excerpt.className = 'ann-excerpt'; excerpt.style.backgroundColor = c.bg;
+      excerpt.textContent = '\u201C' + (displayText.length > 45 ? displayText.slice(0,45)+'\u2026' : displayText) + '\u201D';
       bodyDiv.appendChild(excerpt);
-
       if (isEditing) {
         var editArea = document.createElement('div'); editArea.className = 'ann-edit-area';
         editArea.addEventListener('click', function(e) { e.stopPropagation(); });
@@ -950,26 +881,20 @@
           if (e.key === 'Escape') { editingAnnotation = null; renderSidebar(); }
           e.stopPropagation();
         });
-        var editActions = document.createElement('div'); editActions.className = 'ann-edit-actions';
-        var saveBtn = document.createElement('button'); saveBtn.className = 'btn-small';
-        saveBtn.style.cssText = 'background:var(--accent);color:#fff;border:none';
-        saveBtn.textContent = 'Save';
-        saveBtn.addEventListener('click', function(e) { e.stopPropagation(); updateAnnotationComment(ann.id, ta.value.trim()); });
-        var cancelBtn = document.createElement('button'); cancelBtn.className = 'btn-small'; cancelBtn.textContent = 'Cancel';
-        cancelBtn.addEventListener('click', function(e) { e.stopPropagation(); editingAnnotation = null; renderSidebar(); });
-        editActions.appendChild(saveBtn); editActions.appendChild(cancelBtn);
-        editArea.appendChild(ta); editArea.appendChild(editActions); bodyDiv.appendChild(editArea);
+        var ea = document.createElement('div'); ea.className = 'ann-edit-actions';
+        var sv = document.createElement('button'); sv.className = 'btn-small'; sv.style.cssText = 'background:var(--accent);color:#fff;border:none'; sv.textContent = 'Save';
+        sv.addEventListener('click', function(e) { e.stopPropagation(); updateAnnotationComment(ann.id, ta.value.trim()); });
+        var cn = document.createElement('button'); cn.className = 'btn-small'; cn.textContent = 'Cancel';
+        cn.addEventListener('click', function(e) { e.stopPropagation(); editingAnnotation = null; renderSidebar(); });
+        ea.appendChild(sv); ea.appendChild(cn); editArea.appendChild(ta); editArea.appendChild(ea); bodyDiv.appendChild(editArea);
         setTimeout(function() { ta.focus(); }, 30);
       } else {
-        var commentDiv = document.createElement('div'); commentDiv.className = 'ann-comment';
-        commentDiv.style.color = ann.comment ? 'var(--text)' : 'var(--text-light)';
-        commentDiv.style.fontStyle = ann.comment ? 'normal' : 'italic';
-        commentDiv.textContent = ann.comment || 'No comment';
-        bodyDiv.appendChild(commentDiv);
+        var cd = document.createElement('div'); cd.className = 'ann-comment';
+        cd.style.color = ann.comment ? 'var(--text)' : 'var(--text-light)';
+        cd.style.fontStyle = ann.comment ? 'normal' : 'italic';
+        cd.textContent = ann.comment || 'No comment'; bodyDiv.appendChild(cd);
       }
-
       row.appendChild(badge); row.appendChild(bodyDiv); item.appendChild(row);
-
       if (isActive && !isEditing) {
         var actions = document.createElement('div'); actions.className = 'ann-actions';
         actions.addEventListener('click', function(e) { e.stopPropagation(); });
@@ -979,7 +904,6 @@
         removeBtn.addEventListener('click', function(e) { e.stopPropagation(); removeAnnotation(ann.id); });
         actions.appendChild(editBtn); actions.appendChild(removeBtn); item.appendChild(actions);
       }
-
       sidebarBody.appendChild(item);
     });
   }
@@ -987,10 +911,11 @@
   clearAllBtn.addEventListener('click', function() {
     annotations = []; activeAnnotation = null; editingAnnotation = null;
     renderSidebar(); scheduleHighlightRebuild(); renderHeaderActions();
+    scheduleSave();
   });
   goExportBtn.addEventListener('click', showExport);
 
-  // ── Highlight overlay ────────────────────────────────────
+  // ── Highlights ───────────────────────────────────────────
   var hlTimeout = null;
   function scheduleHighlightRebuild(delay) {
     if (hlTimeout) clearTimeout(hlTimeout);
@@ -1002,116 +927,61 @@
   function rebuildHighlights() {
     hlOverlay.innerHTML = '';
     if (!docText || !sourceMap || annotations.length === 0) return;
-
-    // Build rendered charMap from DOM text nodes
     var textNodes = [];
     var walker = document.createTreeWalker(docContent, NodeFilter.SHOW_TEXT, null, false);
     while (walker.nextNode()) textNodes.push(walker.currentNode);
-
     var charMap = [];
-    for (var ni = 0; ni < textNodes.length; ni++) {
-      var txt = textNodes[ni].textContent;
-      for (var ci = 0; ci < txt.length; ci++) charMap.push({ node: textNodes[ni], offset: ci });
-    }
-
+    for (var ni = 0; ni < textNodes.length; ni++) { var txt = textNodes[ni].textContent; for (var ci = 0; ci < txt.length; ci++) charMap.push({ node: textNodes[ni], offset: ci }); }
     if (charMap.length === 0) return;
 
-    // Build reverse map: rawPos → renderedPos, using sourceMap
-    // sourceMap[rendPos] = rawPos, so we invert it.
     var rawToRend = new Int32Array(docText.length).fill(-1);
-    for (var rp = 0; rp < sourceMap.length; rp++) {
-      var rawP = sourceMap[rp];
-      if (rawToRend[rawP] === -1) rawToRend[rawP] = rp; // first rendered pos for this raw pos
-    }
+    for (var rp = 0; rp < sourceMap.length; rp++) { var rawP = sourceMap[rp]; if (rawToRend[rawP] === -1) rawToRend[rawP] = rp; }
 
     var wrapperRect = docWrapper.getBoundingClientRect();
-    var scrollTop   = docPanel.scrollTop;
-    var scrollLeft  = docPanel.scrollLeft;
+    var scrollTop = docPanel.scrollTop, scrollLeft = docPanel.scrollLeft;
 
     annotations.forEach(function(ann, idx) {
-      // Find first rendered position for rawStart
-      var rendStart = rawToRend[Math.min(ann.startOffset, docText.length - 1)];
-      // Walk forward if this raw pos wasn't directly mapped
-      if (rendStart === -1) {
-        for (var rs = ann.startOffset; rs < docText.length && rendStart === -1; rs++) rendStart = rawToRend[rs];
-      }
+      var rendStart = rawToRend[Math.min(ann.startOffset, docText.length-1)];
+      if (rendStart === -1) { for (var rs=ann.startOffset; rs<docText.length && rendStart===-1; rs++) rendStart=rawToRend[rs]; }
       if (rendStart === -1 || rendStart >= charMap.length) return;
-
-      // Find last rendered position for rawEnd-1
-      var rendEnd = rawToRend[Math.min(ann.endOffset - 1, docText.length - 1)];
-      if (rendEnd === -1) {
-        for (var re = ann.endOffset - 1; re >= 0 && rendEnd === -1; re--) rendEnd = rawToRend[re];
-      }
+      var rendEnd = rawToRend[Math.min(ann.endOffset-1, docText.length-1)];
+      if (rendEnd === -1) { for (var re=ann.endOffset-1; re>=0 && rendEnd===-1; re--) rendEnd=rawToRend[re]; }
       if (rendEnd === -1) return;
-      rendEnd = Math.min(rendEnd, charMap.length - 1);
-
-      var startEntry = charMap[rendStart];
-      var endEntry   = charMap[rendEnd];
+      rendEnd = Math.min(rendEnd, charMap.length-1);
+      var startEntry = charMap[rendStart], endEntry = charMap[rendEnd];
       if (!startEntry || !endEntry) return;
-
       try {
         var range = document.createRange();
         range.setStart(startEntry.node, startEntry.offset);
-        range.setEnd(endEntry.node, endEntry.offset + 1);
+        range.setEnd(endEntry.node, endEntry.offset+1);
         var clientRects = range.getClientRects();
-
         var annRects = [];
-        for (var r = 0; r < clientRects.length; r++) {
-          var cr = clientRects[r];
-          if (cr.width < 1 || cr.height < 1) continue;
-          annRects.push({
-            x: cr.left - wrapperRect.left + scrollLeft,
-            y: cr.top  - wrapperRect.top  + scrollTop,
-            w: cr.width, h: cr.height,
-          });
+        for (var r=0; r<clientRects.length; r++) {
+          var cr = clientRects[r]; if (cr.width<1||cr.height<1) continue;
+          annRects.push({ x:cr.left-wrapperRect.left+scrollLeft, y:cr.top-wrapperRect.top+scrollTop, w:cr.width, h:cr.height });
         }
-
-        // Merge rects on the same visual row
         var merged = [];
         annRects.forEach(function(rect) {
-          for (var m = 0; m < merged.length; m++) {
-            var mr = merged[m];
-            var overlapY = Math.min(mr.y + mr.h, rect.y + rect.h) - Math.max(mr.y, rect.y);
-            if (overlapY > Math.min(mr.h, rect.h) * 0.4) {
-              merged[m] = {
-                x: Math.min(mr.x, rect.x),
-                y: Math.min(mr.y, rect.y),
-                w: Math.max(mr.x + mr.w, rect.x + rect.w) - Math.min(mr.x, rect.x),
-                h: Math.max(mr.y + mr.h, rect.y + rect.h) - Math.min(mr.y, rect.y),
-              };
-              return;
-            }
+          for (var m=0; m<merged.length; m++) {
+            var mr=merged[m], ov=Math.min(mr.y+mr.h,rect.y+rect.h)-Math.max(mr.y,rect.y);
+            if (ov>Math.min(mr.h,rect.h)*0.4) { merged[m]={x:Math.min(mr.x,rect.x),y:Math.min(mr.y,rect.y),w:Math.max(mr.x+mr.w,rect.x+rect.w)-Math.min(mr.x,rect.x),h:Math.max(mr.y+mr.h,rect.y+rect.h)-Math.min(mr.y,rect.y)}; return; }
           }
-          merged.push(Object.assign({}, rect));
+          merged.push(Object.assign({},rect));
         });
-
-        var c = COLORS[ann.color];
-        var isActive = activeAnnotation === ann.id;
-
-        merged.forEach(function(rect, ri2) {
-          var div = document.createElement('div');
-          div.className = 'hl-rect';
-          div.style.left = rect.x + 'px'; div.style.top  = rect.y + 'px';
-          div.style.width = rect.w + 'px'; div.style.height = rect.h + 'px';
-          div.style.backgroundColor = c.border;
-          div.style.opacity = isActive ? '0.4' : '0.22';
-          div.addEventListener('click', function(e) {
-            e.stopPropagation();
-            activeAnnotation = (activeAnnotation === ann.id) ? null : ann.id;
-            renderSidebar(); scheduleHighlightRebuild();
-          });
+        var c=COLORS[ann.color], isActive=activeAnnotation===ann.id;
+        merged.forEach(function(rect,ri2) {
+          var div=document.createElement('div'); div.className='hl-rect';
+          div.style.left=rect.x+'px'; div.style.top=rect.y+'px'; div.style.width=rect.w+'px'; div.style.height=rect.h+'px';
+          div.style.backgroundColor=c.border; div.style.opacity=isActive?'0.4':'0.22';
+          div.addEventListener('click',function(e){e.stopPropagation();activeAnnotation=(activeAnnotation===ann.id)?null:ann.id;renderSidebar();scheduleHighlightRebuild();});
           hlOverlay.appendChild(div);
-
-          if (ri2 === merged.length - 1) {
-            var bdg = document.createElement('div'); bdg.className = 'hl-badge';
-            bdg.style.left = (rect.x + rect.w - 4) + 'px';
-            bdg.style.top  = (rect.y - 5) + 'px';
-            bdg.style.backgroundColor = c.border;
-            bdg.textContent = idx + 1;
+          if (ri2===merged.length-1) {
+            var bdg=document.createElement('div'); bdg.className='hl-badge';
+            bdg.style.left=(rect.x+rect.w-4)+'px'; bdg.style.top=(rect.y-5)+'px'; bdg.style.backgroundColor=c.border; bdg.textContent=idx+1;
             hlOverlay.appendChild(bdg);
           }
         });
-      } catch(e) { /* range errors on edge cases */ }
+      } catch(e) {}
     });
   }
 
@@ -1119,63 +989,36 @@
   function generatePrompt() {
     if (annotations.length === 0) return 'No annotations yet.';
     var gn = globalNoteInput.value.trim();
-    var sorted = annotations.slice().sort(function(a, b) { return a.startOffset - b.startOffset; });
-    var out = gn
-      ? 'Overall note: ' + gn + '\n\nPlease apply the following edits to the document:\n\n'
-      : 'Please apply the following edits to the document:\n\n';
-    sorted.forEach(function(ann, i) {
-      out += '\u2014 Edit ' + (i + 1) + ' \u2014\n';
-      out += 'Section: \u201C' + ann.text + '\u201D\n';
-      out += 'Comment: ' + (ann.comment || '(no comment)') + '\n\n';
-    });
-    out += '\u2014\nPlease return the full updated document with these changes applied.';
+    var sorted = annotations.slice().sort(function(a,b) { return a.startOffset-b.startOffset; });
+    var out = gn ? 'Overall note: '+gn+'\n\nPlease apply the following edits to the document:\n\n' : 'Please apply the following edits to the document:\n\n';
+    sorted.forEach(function(ann,i) { out+='\u2014 Edit '+(i+1)+' \u2014\n'; out+='Section: \u201C'+ann.text+'\u201D\n'; out+='Comment: '+(ann.comment||'(no comment)')+'\n\n'; });
+    out+='\u2014\nPlease return the full updated document with these changes applied.';
     return out;
   }
 
   function renderExport() {
-    if (promptEdited === null) {
-      promptTextarea.value = generatePrompt();
-      resetPromptBtn.style.display = 'none';
-    }
-    promptTextarea.oninput = function() {
-      promptEdited = promptTextarea.value;
-      resetPromptBtn.style.display = '';
-    };
+    if (promptEdited === null) { promptTextarea.value = generatePrompt(); resetPromptBtn.style.display = 'none'; }
+    promptTextarea.oninput = function() { promptEdited = promptTextarea.value; resetPromptBtn.style.display = ''; };
   }
 
-  globalNoteInput.addEventListener('input', function() {
-    if (promptEdited === null) promptTextarea.value = generatePrompt();
-  });
-
-  resetPromptBtn.addEventListener('click', function() {
-    promptEdited = null;
-    promptTextarea.value = generatePrompt();
-    resetPromptBtn.style.display = 'none';
-  });
+  globalNoteInput.addEventListener('input', function() { if (promptEdited===null) promptTextarea.value=generatePrompt(); });
+  resetPromptBtn.addEventListener('click', function() { promptEdited=null; promptTextarea.value=generatePrompt(); resetPromptBtn.style.display='none'; });
 
   copyBtn.addEventListener('click', function() {
-    var text = promptEdited !== null ? promptEdited : generatePrompt();
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(flashCopied);
-    } else {
-      var ta = document.createElement('textarea');
-      ta.value = text; ta.style.cssText = 'position:fixed;top:-9999px';
-      document.body.appendChild(ta); ta.focus(); ta.select();
-      try { document.execCommand('copy'); } catch(e) {}
-      document.body.removeChild(ta);
-      flashCopied();
-    }
+    var text = promptEdited!==null ? promptEdited : generatePrompt();
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(flashCopied); }
+    else { var ta=document.createElement('textarea'); ta.value=text; ta.style.cssText='position:fixed;top:-9999px'; document.body.appendChild(ta); ta.focus(); ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); flashCopied(); }
   });
 
   function flashCopied() {
-    copyBtn.textContent = '\u2713 Copied!';
-    copyBtn.classList.add('copied');
-    setTimeout(function() { copyBtn.textContent = 'Copy prompt'; copyBtn.classList.remove('copied'); }, 2000);
+    copyBtn.textContent='\u2713 Copied!'; copyBtn.classList.add('copied');
+    setTimeout(function(){copyBtn.textContent='Copy prompt';copyBtn.classList.remove('copied');},2000);
   }
 
   // ── Init ─────────────────────────────────────────────────
   renderHeaderActions();
   renderSidebar();
+  loadSession(); // restore last session if available
 
 })();
 </script>
