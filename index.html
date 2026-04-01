@@ -459,9 +459,7 @@
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       flashSaved();
-    } catch(e) {
-      // localStorage full or unavailable — fail silently
-    }
+    } catch(e) {}
   }
 
   function scheduleSave() {
@@ -546,7 +544,6 @@
 
     var rawPositions = [];
     var htmlParts    = [];
-
     var lines = raw.split('\n');
 
     function emitHtml(str) { htmlParts.push(str); }
@@ -707,12 +704,15 @@
       });
       headerActions.appendChild(nb);
 
-      // Sidebar toggle: label reflects the action clearly in both states
+      // Sidebar is on the RIGHT side of the screen.
+      // Visible → arrow points right (▶) to collapse it rightward.
+      // Hidden  → arrow points left (◀) to expand it back from the right.
+      // Count always shown when there are annotations.
       var sb = document.createElement('button'); sb.className = 'btn';
       var noteCount = annotations.length > 0 ? ' (' + annotations.length + ')' : '';
       sb.textContent = sidebarVisible
-        ? 'Notes \u25C0'
-        : 'Notes' + noteCount + ' \u25B6';
+        ? 'Notes' + noteCount + ' \u25B6'
+        : 'Notes' + noteCount + ' \u25C0';
       sb.addEventListener('click', toggleSidebar);
       headerActions.appendChild(sb);
 
@@ -920,7 +920,6 @@
     if (hlTimeout) clearTimeout(hlTimeout);
     hlTimeout = setTimeout(rebuildHighlights, delay || 60);
   }
-  // No scroll listener needed — overlay is in the document flow and scrolls with content
   window.addEventListener('resize', function() { scheduleHighlightRebuild(); });
 
   function rebuildHighlights() {
@@ -936,7 +935,6 @@
     var rawToRend = new Int32Array(docText.length).fill(-1);
     for (var rp = 0; rp < sourceMap.length; rp++) { var rawP = sourceMap[rp]; if (rawToRend[rawP] === -1) rawToRend[rawP] = rp; }
 
-    // Use docWrapper as the positioning reference (overlay is a child of docWrapper)
     var wrapperRect = docWrapper.getBoundingClientRect();
 
     annotations.forEach(function(ann, idx) {
@@ -957,16 +955,7 @@
         var annRects = [];
         for (var r=0; r<clientRects.length; r++) {
           var cr = clientRects[r]; if (cr.width<1||cr.height<1) continue;
-          // Subtract only the wrapper's viewport-relative position.
-          // Do NOT add scroll offsets: the overlay element lives inside
-          // doc-wrapper and scrolls with it, so its top/left are already
-          // relative to the wrapper's top-left corner in the document flow.
-          annRects.push({
-            x: cr.left - wrapperRect.left,
-            y: cr.top  - wrapperRect.top,
-            w: cr.width,
-            h: cr.height
-          });
+          annRects.push({ x: cr.left - wrapperRect.left, y: cr.top - wrapperRect.top, w: cr.width, h: cr.height });
         }
         var merged = [];
         annRects.forEach(function(rect) {
