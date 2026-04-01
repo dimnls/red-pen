@@ -478,7 +478,7 @@
   function showSaving() {
     saveIndicator.style.display = '';
     saveIndicator.className = 'saving';
-    saveIndicator.textContent = 'Saving…';
+    saveIndicator.textContent = 'Saving\u2026';
   }
 
   function flashSaved() {
@@ -707,8 +707,12 @@
       });
       headerActions.appendChild(nb);
 
+      // Sidebar toggle: label reflects the action clearly in both states
       var sb = document.createElement('button'); sb.className = 'btn';
-      sb.textContent = sidebarVisible ? '\u25C0' : 'Notes' + (annotations.length > 0 ? ' (' + annotations.length + ')' : '');
+      var noteCount = annotations.length > 0 ? ' (' + annotations.length + ')' : '';
+      sb.textContent = sidebarVisible
+        ? 'Notes \u25C0'
+        : 'Notes' + noteCount + ' \u25B6';
       sb.addEventListener('click', toggleSidebar);
       headerActions.appendChild(sb);
 
@@ -995,8 +999,8 @@
     var gn = globalNoteInput.value.trim();
     var sorted = annotations.slice().sort(function(a,b) { return a.startOffset-b.startOffset; });
     var out = gn ? 'Overall note: '+gn+'\n\nPlease apply the following edits to the document:\n\n' : 'Please apply the following edits to the document:\n\n';
-    sorted.forEach(function(ann,i) { out+='— Edit '+(i+1)+' —\n'; out+='Section: \u201C'+ann.text+'\u201D\n'; out+='Comment: '+(ann.comment||'(no comment)')+'\n\n'; });
-    out+='—\nPlease return the full updated document with these changes applied.';
+    sorted.forEach(function(ann,i) { out+='\u2014 Edit '+(i+1)+' \u2014\n'; out+='Section: \u201C'+ann.text+'\u201D\n'; out+='Comment: '+(ann.comment||'(no comment)')+'\n\n'; });
+    out+='\u2014\nPlease return the full updated document with these changes applied.';
     return out;
   }
 
