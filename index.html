@@ -390,7 +390,7 @@
 
   var STORAGE_KEY = 'redpen_session_v1';
 
-  // ── State ────────────────────────────────────────────────
+  // ── State ────────────────────────────────────────────
   var docText = '';
   var annotations = [];
   var activeAnnotation = null;
@@ -412,7 +412,7 @@
 
   function genId() { return Math.random().toString(36).substr(2, 9); }
 
-  // ── DOM refs ─────────────────────────────────────────────
+  // ── DOM refs ──────────────────────────────────────────
   var body              = document.body;
   var pasteScreen       = document.getElementById('paste-screen');
   var editorLayout      = document.getElementById('editor-layout');
@@ -446,7 +446,7 @@
   var resetPromptBtn    = document.getElementById('reset-prompt-btn');
   var pasteInput        = document.getElementById('paste-input');
 
-  // ── Autosave ─────────────────────────────────────────────
+  // ── Autosave ─────────────────────────────────────────
   var saveDebounce = null;
 
   function saveSession() {
@@ -478,7 +478,7 @@
   function showSaving() {
     saveIndicator.style.display = '';
     saveIndicator.className = 'saving';
-    saveIndicator.textContent = 'Saving\u2026';
+    saveIndicator.textContent = 'Saving…';
   }
 
   function flashSaved() {
@@ -486,7 +486,6 @@
     saveIndicator.className = 'saved';
     saveIndicator.textContent = '\u2713 Saved';
     setTimeout(function() {
-      // Fade back to subtle state after 2s
       saveIndicator.className = '';
       saveIndicator.textContent = 'Auto-saved';
     }, 2000);
@@ -499,7 +498,6 @@
       var payload = JSON.parse(raw);
       if (!payload || !payload.docText) return;
 
-      // Show restore banner — don't auto-restore silently
       var age = Date.now() - (payload.savedAt || 0);
       var ageStr = age < 60000 ? 'just now'
                  : age < 3600000 ? Math.round(age / 60000) + 'm ago'
@@ -515,7 +513,6 @@
 
       restoreBanner.style.display = 'flex';
 
-      // Actually restore the session
       docText = payload.docText;
       annotations = payload.annotations || [];
       _lineStarts = null;
@@ -528,7 +525,6 @@
       saveIndicator.className = '';
       saveIndicator.textContent = 'Auto-saved';
     } catch(e) {
-      // Corrupt data — clear it
       try { localStorage.removeItem(STORAGE_KEY); } catch(e2) {}
     }
   }
@@ -666,7 +662,7 @@
     return lineIndex < _lineStarts.length ? _lineStarts[lineIndex] : raw.length;
   }
 
-  // ── Views ────────────────────────────────────────────────
+  // ── Views ────────────────────────────────────────────
   function showPaste() {
     currentView = 'paste';
     pasteScreen.style.display = 'flex';
@@ -694,7 +690,6 @@
   }
 
   function renderHeaderActions() {
-    // Preserve the save indicator element — rebuild everything else
     headerActions.innerHTML = '';
     headerActions.appendChild(saveIndicator);
 
@@ -747,7 +742,7 @@
     pasteInput.value = ''; globalNoteInput.value = '';
   }
 
-  // ── Paste ────────────────────────────────────────────────
+  // ── Paste ──────────────────────────────────────────
   var parseDebounce = null;
   pasteInput.addEventListener('input', function() {
     if (pasteInput.value.trim()) {
@@ -764,7 +759,7 @@
     }
   });
 
-  // ── Selection → annotation ───────────────────────────────
+  // ── Selection → annotation ────────────────────────────────
   docContent.addEventListener('mouseup', handleTextSelect);
 
   function handleTextSelect() {
@@ -847,7 +842,7 @@
     scheduleSave();
   }
 
-  // ── Sidebar ──────────────────────────────────────────────
+  // ── Sidebar ──────────────────────────────────────────
   function renderSidebar() {
     var count = annotations.length;
     sidebarTitle.textContent = 'Notes' + (count > 0 ? ' (' + count + ')' : '');
@@ -915,13 +910,13 @@
   });
   goExportBtn.addEventListener('click', showExport);
 
-  // ── Highlights ───────────────────────────────────────────
+  // ── Highlights ─────────────────────────────────────────
   var hlTimeout = null;
   function scheduleHighlightRebuild(delay) {
     if (hlTimeout) clearTimeout(hlTimeout);
     hlTimeout = setTimeout(rebuildHighlights, delay || 60);
   }
-  docPanel.addEventListener('scroll', function() { scheduleHighlightRebuild(); });
+  // No scroll listener needed — overlay is in the document flow and scrolls with content
   window.addEventListener('resize', function() { scheduleHighlightRebuild(); });
 
   function rebuildHighlights() {
@@ -937,8 +932,8 @@
     var rawToRend = new Int32Array(docText.length).fill(-1);
     for (var rp = 0; rp < sourceMap.length; rp++) { var rawP = sourceMap[rp]; if (rawToRend[rawP] === -1) rawToRend[rawP] = rp; }
 
+    // Use docWrapper as the positioning reference (overlay is a child of docWrapper)
     var wrapperRect = docWrapper.getBoundingClientRect();
-    var scrollTop = docPanel.scrollTop, scrollLeft = docPanel.scrollLeft;
 
     annotations.forEach(function(ann, idx) {
       var rendStart = rawToRend[Math.min(ann.startOffset, docText.length-1)];
@@ -958,7 +953,16 @@
         var annRects = [];
         for (var r=0; r<clientRects.length; r++) {
           var cr = clientRects[r]; if (cr.width<1||cr.height<1) continue;
-          annRects.push({ x:cr.left-wrapperRect.left+scrollLeft, y:cr.top-wrapperRect.top+scrollTop, w:cr.width, h:cr.height });
+          // Subtract only the wrapper's viewport-relative position.
+          // Do NOT add scroll offsets: the overlay element lives inside
+          // doc-wrapper and scrolls with it, so its top/left are already
+          // relative to the wrapper's top-left corner in the document flow.
+          annRects.push({
+            x: cr.left - wrapperRect.left,
+            y: cr.top  - wrapperRect.top,
+            w: cr.width,
+            h: cr.height
+          });
         }
         var merged = [];
         annRects.forEach(function(rect) {
@@ -975,9 +979,9 @@
           div.style.backgroundColor=c.border; div.style.opacity=isActive?'0.4':'0.22';
           div.addEventListener('click',function(e){e.stopPropagation();activeAnnotation=(activeAnnotation===ann.id)?null:ann.id;renderSidebar();scheduleHighlightRebuild();});
           hlOverlay.appendChild(div);
-          if (ri2===merged.length-1) {
+          if (ri2===0) {
             var bdg=document.createElement('div'); bdg.className='hl-badge';
-            bdg.style.left=(rect.x+rect.w-4)+'px'; bdg.style.top=(rect.y-5)+'px'; bdg.style.backgroundColor=c.border; bdg.textContent=idx+1;
+            bdg.style.left=(rect.x-8)+'px'; bdg.style.top=(rect.y-5)+'px'; bdg.style.backgroundColor=c.border; bdg.textContent=idx+1;
             hlOverlay.appendChild(bdg);
           }
         });
@@ -985,14 +989,14 @@
     });
   }
 
-  // ── Export ───────────────────────────────────────────────
+  // ── Export ──────────────────────────────────────────
   function generatePrompt() {
     if (annotations.length === 0) return 'No annotations yet.';
     var gn = globalNoteInput.value.trim();
     var sorted = annotations.slice().sort(function(a,b) { return a.startOffset-b.startOffset; });
     var out = gn ? 'Overall note: '+gn+'\n\nPlease apply the following edits to the document:\n\n' : 'Please apply the following edits to the document:\n\n';
-    sorted.forEach(function(ann,i) { out+='\u2014 Edit '+(i+1)+' \u2014\n'; out+='Section: \u201C'+ann.text+'\u201D\n'; out+='Comment: '+(ann.comment||'(no comment)')+'\n\n'; });
-    out+='\u2014\nPlease return the full updated document with these changes applied.';
+    sorted.forEach(function(ann,i) { out+='— Edit '+(i+1)+' —\n'; out+='Section: \u201C'+ann.text+'\u201D\n'; out+='Comment: '+(ann.comment||'(no comment)')+'\n\n'; });
+    out+='—\nPlease return the full updated document with these changes applied.';
     return out;
   }
 
@@ -1015,10 +1019,10 @@
     setTimeout(function(){copyBtn.textContent='Copy prompt';copyBtn.classList.remove('copied');},2000);
   }
 
-  // ── Init ─────────────────────────────────────────────────
+  // ── Init ────────────────────────────────────────────
   renderHeaderActions();
   renderSidebar();
-  loadSession(); // restore last session if available
+  loadSession();
 
 })();
 </script>
