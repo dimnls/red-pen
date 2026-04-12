@@ -106,6 +106,15 @@
     font-family: 'Instrument Serif', Georgia, serif;
     font-weight: 400; font-size: 22px; margin-bottom: 8px;
   }
+  /* Squiggly red underline on "red pen" */
+  .squiggle {
+    display: inline;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='4'%3E%3Cpath d='M0 3 Q2.5 0 5 3 Q7.5 6 10 3 Q12.5 0 15 3 Q17.5 6 20 3' fill='none' stroke='%23C44A2D' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: repeat-x;
+    background-position: 0 100%;
+    background-size: 20px 4px;
+    padding-bottom: 4px;
+  }
   .paste-inner p { font-size: 13px; color: var(--text-muted); line-height: 1.7; margin-bottom: 20px; }
   #paste-input {
     width: 100%; min-height: 220px; padding: 16px; font-size: 13.5px;
@@ -317,7 +326,7 @@
   <div id="paste-screen">
     <div class="paste-inner">
       <div class="paste-emoji">&#128394;&#65039;</div>
-      <h2>Give Claude&#8217;s output the red pen treatment</h2>
+      <h2>Give Claude&#8217;s output the <span class="squiggle">red pen</span> treatment</h2>
       <p>
         Paste any Claude response below, then highlight sections to leave editor&#8217;s notes &#8212;<br />
         what to rewrite, rethink, or rephrase. Export as a prompt to send straight back.
