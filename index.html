@@ -299,9 +299,20 @@
     font-size: 12px; font-family: 'IBM Plex Mono', monospace; line-height: 1.7;
     border: none; outline: none; resize: vertical; background: var(--surface); color: var(--text);
   }
+
+  /* Header button visibility controlled by data-view attribute on body */
+  #btn-new, #btn-notes, #btn-editor, #btn-export { display: none; }
+  body[data-view="editor"] #btn-new,
+  body[data-view="editor"] #btn-notes,
+  body[data-view="editor"] #btn-editor,
+  body[data-view="editor"] #btn-export,
+  body[data-view="export"] #btn-new,
+  body[data-view="export"] #btn-notes,
+  body[data-view="export"] #btn-editor,
+  body[data-view="export"] #btn-export { display: inline-flex; align-items: center; }
 </style>
 </head>
-<body class="light">
+<body class="light" data-view="paste">
 
 <header id="header">
   <div class="logo">
@@ -310,6 +321,11 @@
   </div>
   <div class="header-actions" id="header-actions">
     <span id="save-indicator"></span>
+    <button class="btn-icon" id="btn-theme" title="Toggle theme">&#127769;</button>
+    <button class="btn" id="btn-new">New</button>
+    <button class="btn" id="btn-notes">Notes &#9664;</button>
+    <button class="btn" id="btn-editor">Editor</button>
+    <button class="btn" id="btn-export">Export</button>
   </div>
 </header>
 
@@ -429,14 +445,12 @@
   var pasteScreen       = document.getElementById('paste-screen');
   var editorLayout      = document.getElementById('editor-layout');
   var exportViewEl      = document.getElementById('export-view');
-  var headerActions     = document.getElementById('header-actions');
   var saveIndicator     = document.getElementById('save-indicator');
   var restoreBanner     = document.getElementById('restore-banner');
   var restoreText       = document.getElementById('restore-text');
   var restoreDismissBtn = document.getElementById('restore-dismiss-btn');
   var restoreClearBtn   = document.getElementById('restore-clear-btn');
   var docContent        = document.getElementById('doc-content');
-  var docPanel          = document.getElementById('doc-panel');
   var docWrapper        = document.getElementById('doc-wrapper');
   var hlOverlay         = document.getElementById('highlight-overlay');
   var sidebar           = document.getElementById('sidebar');
@@ -457,6 +471,23 @@
   var promptTextarea    = document.getElementById('prompt-textarea');
   var resetPromptBtn    = document.getElementById('reset-prompt-btn');
   var pasteInput        = document.getElementById('paste-input');
+
+  // Static header buttons (always in DOM, visibility via CSS data-view)
+  var btnTheme  = document.getElementById('btn-theme');
+  var btnNew    = document.getElementById('btn-new');
+  var btnNotes  = document.getElementById('btn-notes');
+  var btnEditor = document.getElementById('btn-editor');
+  var btnExport = document.getElementById('btn-export');
+
+  // Wire up static header buttons once
+  btnTheme.addEventListener('click', toggleTheme);
+  btnNew.addEventListener('click', function() {
+    if (annotations.length > 0 && !confirm('Clear all and start fresh?')) return;
+    clearSession(); resetAll(); showPaste();
+  });
+  btnNotes.addEventListener('click', toggleSidebar);
+  btnEditor.addEventListener('click', function() { if (currentView !== 'editor') showEditor(); });
+  btnExport.addEventListener('click', function() { if (currentView !== 'export') showExport(); });
 
   // ── Autosave ─────────────────────────────────────────
   var saveDebounce = null;
@@ -672,103 +703,74 @@
   }
 
   // ── Views ────────────────────────────────────────────
+  function setView(view) {
+    currentView = view;
+    body.setAttribute('data-view', view);
+    pasteScreen.style.display    = view === 'paste'  ? 'flex' : 'none';
+    editorLayout.style.display   = view === 'editor' ? 'flex' : 'none';
+    exportViewEl.style.display   = view === 'export' ? 'flex' : 'none';
+    updateHeaderButtons();
+  }
+
+  function updateHeaderButtons() {
+    var noteCount = annotations.length > 0 ? ' (' + annotations.length + ')' : '';
+    btnTheme.textContent = dark ? '\u2600\uFE0F' : '\uD83C\uDF19';
+    btnNotes.textContent = 'Notes' + noteCount + ' ' + (sidebarVisible ? '\u25C0' : '\u25B6');
+    btnEditor.className = 'btn' + (currentView === 'editor' ? ' active' : '');
+    btnExport.className = 'btn' + (currentView === 'export' ? ' active' : '');
+    btnExport.textContent = 'Export' + noteCount;
+  }
+
   function showPaste() {
-    currentView = 'paste';
-    pasteScreen.style.display = 'flex';
-    editorLayout.style.display = 'none';
-    exportViewEl.style.display = 'none';
-    renderHeaderActions();
+    setView('paste');
   }
 
   function showEditor() {
-    currentView = 'editor';
-    pasteScreen.style.display = 'none';
-    editorLayout.style.display = 'flex';
-    exportViewEl.style.display = 'none';
-    renderHeaderActions();
+    setView('editor');
     scheduleHighlightRebuild();
   }
 
   function showExport() {
-    currentView = 'export';
-    pasteScreen.style.display = 'none';
-    editorLayout.style.display = 'none';
-    exportViewEl.style.display = 'flex';
-    renderHeaderActions();
+    setView('export');
     renderExport();
   }
 
-  function renderHeaderActions() {
-    headerActions.innerHTML = '';
-    headerActions.appendChild(saveIndicator);
-
-    var t = document.createElement('button');
-    t.className = 'btn-icon'; t.title = 'Toggle theme';
-    t.textContent = dark ? '\u2600\uFE0F' : '\uD83C\uDF19';
-    t.addEventListener('click', toggleTheme);
-    headerActions.appendChild(t);
-
-    if (currentView !== 'paste') {
-      var nb = document.createElement('button'); nb.className = 'btn'; nb.textContent = 'New';
-      nb.addEventListener('click', function() {
-        if (annotations.length > 0 && !confirm('Clear all and start fresh?')) return;
-        clearSession(); resetAll(); showPaste();
-      });
-      headerActions.appendChild(nb);
-
-      var sb = document.createElement('button'); sb.className = 'btn';
-      var noteCount = annotations.length > 0 ? ' (' + annotations.length + ')' : '';
-      sb.textContent = sidebarVisible
-        ? 'Notes' + noteCount + ' \u25B6'
-        : 'Notes' + noteCount + ' \u25C0';
-      sb.addEventListener('click', toggleSidebar);
-      headerActions.appendChild(sb);
-
-      var eb = document.createElement('button');
-      eb.className = 'btn' + (currentView === 'editor' ? ' active' : '');
-      eb.textContent = 'Editor';
-      eb.addEventListener('click', showEditor);
-      headerActions.appendChild(eb);
-
-      var xb = document.createElement('button');
-      xb.className = 'btn' + (currentView === 'export' ? ' active' : '');
-      xb.textContent = 'Export' + (annotations.length > 0 ? ' (' + annotations.length + ')' : '');
-      xb.addEventListener('click', showExport);
-      headerActions.appendChild(xb);
-    }
-  }
-
-  function toggleTheme() { dark = !dark; body.className = dark ? 'dark' : 'light'; renderHeaderActions(); }
+  function toggleTheme() { dark = !dark; body.className = (dark ? 'dark' : 'light'); body.setAttribute('data-view', currentView); updateHeaderButtons(); }
 
   function toggleSidebar() {
     sidebarVisible = !sidebarVisible;
     sidebar.classList.toggle('hidden', !sidebarVisible);
-    renderHeaderActions();
+    updateHeaderButtons();
     scheduleHighlightRebuild(350);
   }
 
   function resetAll() {
+    // Cancel any pending debounces so they can't fire after reset
+    if (parseDebounce) { clearTimeout(parseDebounce); parseDebounce = null; }
+    if (saveDebounce)  { clearTimeout(saveDebounce);  saveDebounce  = null; }
     docText = ''; annotations = []; activeAnnotation = null;
     editingAnnotation = null; pendingPopover = null; promptEdited = null;
     sourceMap = null; _lineStarts = null;
     pasteInput.value = ''; globalNoteInput.value = '';
+    docContent.innerHTML = '';
+    hlOverlay.innerHTML = '';
   }
 
   // ── Paste ──────────────────────────────────────────
   var parseDebounce = null;
   pasteInput.addEventListener('input', function() {
-    if (pasteInput.value.trim()) {
-      clearTimeout(parseDebounce);
-      parseDebounce = setTimeout(function() {
-        docText = pasteInput.value;
-        _lineStarts = null;
-        var result = buildDoc(docText);
-        sourceMap = result.map;
-        docContent.innerHTML = result.html;
-        showEditor();
-        scheduleSave();
-      }, 150);
-    }
+    if (parseDebounce) clearTimeout(parseDebounce);
+    if (!pasteInput.value.trim()) return;
+    parseDebounce = setTimeout(function() {
+      parseDebounce = null;
+      docText = pasteInput.value;
+      _lineStarts = null;
+      var result = buildDoc(docText);
+      sourceMap = result.map;
+      docContent.innerHTML = result.html;
+      showEditor();
+      scheduleSave();
+    }, 150);
   });
 
   // ── Selection → annotation ────────────────────────────────
@@ -836,7 +838,7 @@
       color: annotations.length % COLORS.length,
     });
     annotations.sort(function(a,b) { return a.startOffset - b.startOffset; });
-    hidePopover(); renderSidebar(); scheduleHighlightRebuild(); renderHeaderActions();
+    hidePopover(); renderSidebar(); scheduleHighlightRebuild(); updateHeaderButtons();
     scheduleSave();
   }
 
@@ -844,7 +846,7 @@
     annotations = annotations.filter(function(a) { return a.id !== id; });
     if (activeAnnotation === id) activeAnnotation = null;
     if (editingAnnotation === id) editingAnnotation = null;
-    renderSidebar(); scheduleHighlightRebuild(); renderHeaderActions();
+    renderSidebar(); scheduleHighlightRebuild(); updateHeaderButtons();
     scheduleSave();
   }
 
@@ -917,7 +919,7 @@
 
   clearAllBtn.addEventListener('click', function() {
     annotations = []; activeAnnotation = null; editingAnnotation = null;
-    renderSidebar(); scheduleHighlightRebuild(); renderHeaderActions();
+    renderSidebar(); scheduleHighlightRebuild(); updateHeaderButtons();
     scheduleSave();
   });
   goExportBtn.addEventListener('click', showExport);
@@ -1002,9 +1004,16 @@
   }
 
   function renderExport() {
-    if (promptEdited === null) { promptTextarea.value = generatePrompt(); resetPromptBtn.style.display = 'none'; }
-    promptTextarea.oninput = function() { promptEdited = promptTextarea.value; resetPromptBtn.style.display = ''; };
+    if (promptEdited === null) {
+      promptTextarea.value = generatePrompt();
+      resetPromptBtn.style.display = 'none';
+    }
   }
+
+  promptTextarea.addEventListener('input', function() {
+    promptEdited = promptTextarea.value;
+    resetPromptBtn.style.display = '';
+  });
 
   globalNoteInput.addEventListener('input', function() { if (promptEdited===null) promptTextarea.value=generatePrompt(); });
   resetPromptBtn.addEventListener('click', function() { promptEdited=null; promptTextarea.value=generatePrompt(); resetPromptBtn.style.display='none'; });
@@ -1021,7 +1030,7 @@
   }
 
   // ── Init ────────────────────────────────────────────
-  renderHeaderActions();
+  updateHeaderButtons();
   renderSidebar();
   loadSession();
 
