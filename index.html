@@ -754,6 +754,13 @@
     pasteInput.value = ''; globalNoteInput.value = '';
     docContent.innerHTML = '';
     hlOverlay.innerHTML = '';
+    // Reset sidebar DOM to empty state
+    sidebarTitle.textContent = 'Notes';
+    clearAllBtn.style.display = 'none';
+    sidebarFooter.style.display = 'none';
+    sidebarBody.innerHTML = '';
+    sidebarBody.appendChild(sidebarEmpty);
+    sidebarEmpty.style.display = '';
   }
 
   // ── Paste ──────────────────────────────────────────
