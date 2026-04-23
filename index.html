@@ -805,6 +805,7 @@
   var restoreClearBtn   = document.getElementById('restore-clear-btn');
   var docContent        = document.getElementById('doc-content');
   var docWrapper        = document.getElementById('doc-wrapper');
+  var docPanel          = document.getElementById('doc-panel');
   var hlOverlay         = document.getElementById('highlight-overlay');
   var sidebar           = document.getElementById('sidebar');
   var sidebarTitle      = document.getElementById('sidebar-title');
@@ -1271,6 +1272,9 @@
   }
   window.addEventListener('resize', function() { scheduleHighlightRebuild(); });
 
+  // Rebuild highlights on scroll so rects stay anchored to content
+  docPanel.addEventListener('scroll', function() { scheduleHighlightRebuild(); });
+
   function rebuildHighlights() {
     hlOverlay.innerHTML = '';
     if (!docText || !sourceMap || annotations.length === 0) return;
@@ -1287,7 +1291,11 @@
     var rawToRend = new Int32Array(docText.length).fill(-1);
     for (var rp = 0; rp < sourceMap.length; rp++) { var rawP = sourceMap[rp]; if (rawToRend[rawP] === -1) rawToRend[rawP] = rp; }
 
+    // Use docWrapper's position in the viewport, then adjust for docPanel scroll
+    // so the overlay rects are in the coordinate space of the absolutely-positioned overlay
     var wrapperRect = docWrapper.getBoundingClientRect();
+    var scrollTop  = docPanel.scrollTop;
+    var scrollLeft = docPanel.scrollLeft;
 
     annotations.forEach(function(ann, idx) {
       var rendStart = rawToRend[Math.min(ann.startOffset, docText.length-1)];
@@ -1307,7 +1315,14 @@
         var annRects = [];
         for (var r=0; r<clientRects.length; r++) {
           var cr = clientRects[r]; if (cr.width<1||cr.height<1) continue;
-          annRects.push({ x: cr.left - wrapperRect.left, y: cr.top - wrapperRect.top, w: cr.width, h: cr.height });
+          // Convert from viewport-relative to overlay-relative by:
+          // subtracting wrapper's viewport position, then adding scroll offset
+          annRects.push({
+            x: cr.left - wrapperRect.left + scrollLeft,
+            y: cr.top  - wrapperRect.top  + scrollTop,
+            w: cr.width,
+            h: cr.height
+          });
         }
         var merged = [];
         annRects.forEach(function(rect) {
