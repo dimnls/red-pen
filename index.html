@@ -30,7 +30,6 @@
     --display: 'Syne', sans-serif;
   }
 
-  /* Light mode override */
   body.light {
     --bg: #f5f5f5;
     --surface: #ffffff;
@@ -57,7 +56,6 @@
     transition: background 0.2s, color 0.2s;
   }
 
-  /* ── HEADER ── */
   #header {
     padding: 0 20px;
     height: 48px;
@@ -93,7 +91,6 @@
 
   .header-actions { display: flex; gap: 6px; align-items: center; }
 
-  /* Autosave pill */
   #save-indicator {
     font-size: 10px;
     color: var(--text-muted);
@@ -109,7 +106,6 @@
   #save-indicator.saved  { color: #3ecf8e; border-color: rgba(62,207,142,0.25); }
   #save-indicator.saving { color: var(--text-muted); }
 
-  /* Buttons */
   .btn {
     padding: 5px 12px;
     font-size: 11px;
@@ -170,10 +166,8 @@
   .btn-small.danger { color: var(--accent); border-color: rgba(232,37,26,0.3); }
   .btn-small.danger:hover { background: var(--accent-light); }
 
-  /* ── MAIN ── */
   #main { flex: 1; display: flex; overflow: auto; }
 
-  /* ── PASTE SCREEN ── */
   #paste-screen {
     flex: 1;
     display: flex;
@@ -183,11 +177,7 @@
     min-height: min-content;
   }
 
-  .paste-inner {
-    width: 100%;
-    max-width: 580px;
-    text-align: left;
-  }
+  .paste-inner { width: 100%; max-width: 580px; text-align: left; }
 
   .paste-eyebrow {
     font-family: var(--mono);
@@ -210,9 +200,7 @@
     color: var(--text);
   }
 
-  .paste-inner h2 .accent-word {
-    color: var(--accent);
-  }
+  .paste-inner h2 .accent-word { color: var(--accent); }
 
   .paste-inner p {
     font-size: 12px;
@@ -240,16 +228,10 @@
   #paste-input::placeholder { color: var(--text-light); }
   #paste-input:focus { border-color: var(--accent); }
 
-  .paste-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 10px;
-  }
+  .paste-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
   .paste-hint { font-size: 10px; color: var(--text-muted); letter-spacing: 0.05em; font-family: var(--mono); }
   .paste-privacy { font-size: 10px; color: var(--text-light); letter-spacing: 0.05em; font-family: var(--mono); }
 
-  /* ── RESTORE BANNER ── */
   #restore-banner {
     display: none;
     background: var(--surface);
@@ -265,7 +247,6 @@
   #restore-banner span { flex: 1; }
   #restore-banner .restore-actions { display: flex; gap: 8px; }
 
-  /* ── EDITOR ── */
   #editor-layout { flex: 1; display: flex; overflow: hidden; }
 
   #doc-panel {
@@ -339,7 +320,8 @@
   #doc-content td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
   #doc-content a { color: var(--accent); text-decoration: underline; }
 
-  /* ── OVERLAYS ── */
+  /* Overlay sits inside doc-wrapper (position:relative).
+     Highlights use absolute coords relative to doc-wrapper's top-left. */
   #highlight-overlay {
     position: absolute; top: 0; left: 0; right: 0; bottom: 0;
     pointer-events: none; z-index: 2;
@@ -364,7 +346,6 @@
     font-family: var(--mono);
   }
 
-  /* ── POPOVER ── */
   #popover {
     position: fixed;
     left: 50%; top: 50%;
@@ -419,16 +400,10 @@
   #comment-input:focus { border-color: var(--accent); }
   #comment-input::placeholder { color: var(--text-light); }
 
-  .popover-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 10px;
-  }
+  .popover-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
   .popover-hint { font-size: 9px; color: var(--text-light); letter-spacing: 0.05em; font-family: var(--mono); }
   .popover-actions { display: flex; gap: 6px; }
 
-  /* ── SIDEBAR ── */
   #sidebar {
     width: 288px;
     border-left: 1px solid var(--border);
@@ -511,7 +486,6 @@
   }
 
   .ann-comment { font-size: 11px; line-height: 1.5; font-family: var(--mono); }
-
   .ann-actions { display: flex; gap: 4px; margin-top: 8px; margin-left: 24px; }
 
   .ann-edit-area { margin-top: 4px; }
@@ -536,7 +510,6 @@
   }
   .sidebar-footer .btn-primary { width: 100%; padding: 9px; font-size: 11px; }
 
-  /* ── EXPORT ── */
   #export-view {
     flex: 1;
     overflow: auto;
@@ -611,11 +584,7 @@
   #global-note-input:focus { border-color: var(--accent); }
   #global-note-input::placeholder { color: var(--text-light); }
 
-  .prompt-box {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    overflow: hidden;
-  }
+  .prompt-box { background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
 
   .prompt-box-header {
     padding: 8px 14px;
@@ -651,7 +620,6 @@
     color: var(--text);
   }
 
-  /* ── HEADER BUTTON VISIBILITY ── */
   #btn-new, #btn-notes, #btn-editor, #btn-export { display: none; }
   body[data-view="editor"] #btn-new,
   body[data-view="editor"] #btn-notes,
@@ -662,7 +630,6 @@
   body[data-view="export"] #btn-editor,
   body[data-view="export"] #btn-export { display: inline-flex; align-items: center; }
 
-  /* Selection color */
   ::selection { background: rgba(232,37,26,0.25); color: var(--text); }
 </style>
 </head>
@@ -1271,8 +1238,8 @@
     hlTimeout = setTimeout(rebuildHighlights, delay || 60);
   }
   window.addEventListener('resize', function() { scheduleHighlightRebuild(); });
-
-  // Rebuild highlights on scroll so rects stay anchored to content
+  // Rebuild on scroll: clientRects are viewport-relative so when the panel scrolls
+  // we need to recalculate to keep highlights aligned with their text.
   docPanel.addEventListener('scroll', function() { scheduleHighlightRebuild(); });
 
   function rebuildHighlights() {
@@ -1291,11 +1258,14 @@
     var rawToRend = new Int32Array(docText.length).fill(-1);
     for (var rp = 0; rp < sourceMap.length; rp++) { var rawP = sourceMap[rp]; if (rawToRend[rawP] === -1) rawToRend[rawP] = rp; }
 
-    // Use docWrapper's position in the viewport, then adjust for docPanel scroll
-    // so the overlay rects are in the coordinate space of the absolutely-positioned overlay
+    // clientRects from Range.getClientRects() are viewport-relative.
+    // The overlay is position:absolute inside #doc-wrapper (position:relative).
+    // To convert: subtract wrapperRect (viewport pos of wrapper's top-left),
+    // then add docPanel scroll offset (because the wrapper is inside the scroller,
+    // so its absolute origin is at scroll position 0, not current viewport pos).
     var wrapperRect = docWrapper.getBoundingClientRect();
-    var scrollTop  = docPanel.scrollTop;
-    var scrollLeft = docPanel.scrollLeft;
+    var scrollTop   = docPanel.scrollTop;
+    var scrollLeft  = docPanel.scrollLeft;
 
     annotations.forEach(function(ann, idx) {
       var rendStart = rawToRend[Math.min(ann.startOffset, docText.length-1)];
@@ -1315,8 +1285,6 @@
         var annRects = [];
         for (var r=0; r<clientRects.length; r++) {
           var cr = clientRects[r]; if (cr.width<1||cr.height<1) continue;
-          // Convert from viewport-relative to overlay-relative by:
-          // subtracting wrapper's viewport position, then adding scroll offset
           annRects.push({
             x: cr.left - wrapperRect.left + scrollLeft,
             y: cr.top  - wrapperRect.top  + scrollTop,
