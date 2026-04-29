@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Red Pen</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%96%8A%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+
+  :root {
+    --bg: #faf8f4;
+    --surface: #ffffff;
+    --surface-alt: #f3f0ea;
+    --surface-hover: #ede9e0;
+    --border: #e0dbd0;
+    --border-light: #ece8de;
+    --text: #1a1712;
+    --text-muted: #7a7060;
+    --text-light: #b8b0a0;
+    --accent: #c8201a;
+    --accent-hover: #a81812;
+    --accent-light: rgba(200,32,26,0.08);
+    --code-bg: #f0ede6;
+    --shadow: 0 8px 32px rgba(30,20,10,0.12), 0 2px 8px rgba(30,20,10,0.06);
+    --mono: 'DM Mono', 'Menlo', monospace;
+    --display: 'Fraunces', Georgia, serif;
+    --sans: 'Instrument Sans', system-ui, sans-serif;
+    --radius: 3px;
+  }
+
+  body.dark {
+    --bg: #18140f;
+    --surface: #211d17;
+    --surface-alt: #2a2520;
+    --surface-hover: #332e28;
+    --border: #3a342c;
+    --border-light: #302b24;
+    --text: #ede8df;
+    --text-muted: #8a806e;
+    --text-light: #4a4438;
+    --accent: #d4241d;
+    --accent-hover: #b81e18;
+    --accent-light: rgba(212,36,29,0.12);
+    --code-bg: #1e1a14;
+    --shadow: 0 12px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    transition: background 0.2s, color 0.2s;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #header {
+    padding: 0 24px;
+    height: 52px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .logo { display: flex; align-items: center; gap: 10px; }
+
+  .logo-mark {
+    width: 22px; height: 22px;
+    background: var(--accent);
+    display: block;
+    flex-shrink: 0;
+    clip-path: polygon(0 0, 100% 0, 100% 68%, 68% 100%, 0 100%);
+  }
+
+  .logo h1 {
+    font-family: var(--display);
+    font-optical-sizing: auto;
+    font-weight: 600;
+    font-size: 17px;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+
+  .header-actions { display: flex; gap: 6px; align-items: center; }
+
+  #save-indicator {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: all 0.3s;
+    white-space: nowrap;
+    display: none;
+    font-family: var(--sans);
+  }
+  #save-indicator.saved  { color: #2d8a5a; border-color: rgba(45,138,90,0.25); }
+  #save-indicator.saving { color: var(--text-muted); }
+
+  .btn {
+    padding: 5px 13px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: var(--sans);
+    letter-spacing: 0.01em;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .btn:hover { border-color: var(--text-muted); color: var(--text); background: var(--surface-alt); }
+  .btn.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+
+  .btn-icon {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.12s;
+    flex-shrink: 0;
+  }
+  .btn-icon:hover { border-color: var(--text-muted); color: var(--text); background: var(--surface-alt); }
+
+  .btn-primary {
+    padding: 7px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--sans);
+    letter-spacing: 0.01em;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+
+  .btn-small {
+    padding: 3px 10px;
+    font-size: 11px;
+    font-family: var(--sans);
+    letter-spacing: 0.01em;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .btn-small:hover { border-color: var(--text-muted); color: var(--text); background: var(--surface-alt); }
+  .btn-small.danger { color: var(--accent); border-color: rgba(200,32,26,0.3); }
+  .btn-small.danger:hover { background: var(--accent-light); }
+
+  #main { flex: 1; display: flex; overflow: auto; }
+
+  #paste-screen {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 32px;
+    min-height: min-content;
+  }
+
+  .paste-inner { width: 100%; max-width: 600px; text-align: left; }
+
+  .paste-eyebrow {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20px;
+    opacity: 0.9;
+  }
+
+  .paste-inner h2 {
+    font-family: var(--display);
+    font-optical-sizing: auto;
+    font-weight: 600;
+    font-size: 44px;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin-bottom: 18px;
+    color: var(--text);
+  }
+
+  .paste-inner h2 .accent-word {
+    color: var(--accent);
+    font-style: italic;
+    font-weight: 300;
+  }
+
+  .paste-inner p {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.75;
+    margin-bottom: 32px;
+    font-family: var(--sans);
+    max-width: 480px;
+  }
+
+  #paste-input {
+    width: 100%;
+    min-height: 200px;
+    padding: 16px 18px;
+    font-size: 13px;
+    font-family: var(--sans);
+    line-height: 1.7;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
+  }
+  #paste-input::placeholder { color: var(--text-light); }
+  #paste-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light), inset 0 1px 3px rgba(0,0,0,0.04); }
+
+  .paste-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .paste-hint { font-size: 11px; color: var(--text-muted); font-family: var(--sans); }
+  .paste-privacy { font-size: 11px; color: var(--text-light); font-family: var(--sans); }
+
+  #restore-banner {
+    display: none;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 9px 24px;
+    font-size: 12px;
+    color: var(--text-muted);
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    font-family: var(--sans);
+  }
+  #restore-banner span { flex: 1; }
+  #restore-banner .restore-actions { display: flex; gap: 8px; }
+
+  #editor-layout { flex: 1; display: flex; overflow: hidden; }
+
+  #doc-panel {
+    flex: 1;
+    overflow: auto;
+    padding: 40px 48px;
+    position: relative;
+  }
+
+  #doc-wrapper {
+    max-width: 700px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  #doc-content {
+    font-size: 15px;
+    line-height: 1.8;
+    word-break: break-word;
+    color: var(--text);
+    overflow-x: auto;
+    position: relative;
+    z-index: 1;
+    font-family: var(--sans);
+  }
+  #doc-content h1 { font-family: var(--display); font-optical-sizing: auto; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin: 36px 0 14px; line-height: 1.15; color: var(--text); }
+  #doc-content h2 { font-family: var(--display); font-optical-sizing: auto; font-size: 21px; font-weight: 600; letter-spacing: -0.015em; margin: 28px 0 10px; line-height: 1.25; color: var(--text); }
+  #doc-content h3 { font-family: var(--sans); font-size: 13px; font-weight: 600; margin: 22px 0 6px; line-height: 1.4; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+  #doc-content h4 { font-family: var(--sans); font-size: 13px; font-weight: 600; margin: 18px 0 4px; line-height: 1.4; color: var(--text-muted); }
+  #doc-content p { margin: 8px 0; line-height: 1.8; }
+  #doc-content li { margin: 4px 0; margin-left: 22px; line-height: 1.75; }
+  #doc-content ol li { list-style-type: decimal; }
+  #doc-content ul li { list-style-type: disc; }
+  #doc-content pre {
+    background: var(--code-bg);
+    padding: 14px 18px;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.65;
+    margin: 16px 0;
+    border-left: 2px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-family: var(--mono);
+  }
+  #doc-content code {
+    background: var(--code-bg);
+    padding: 1px 5px;
+    font-size: 0.87em;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    font-family: var(--mono);
+  }
+  #doc-content pre code { background: none; border: none; padding: 0; border-radius: 0; }
+  #doc-content blockquote {
+    border-left: 2px solid var(--accent);
+    padding: 6px 0 6px 18px;
+    margin: 14px 0;
+    color: var(--text-muted);
+    font-style: italic;
+    font-family: var(--display);
+    font-optical-sizing: auto;
+    font-size: 15px;
+  }
+  #doc-content hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+  #doc-content table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  #doc-content th {
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    text-align: left;
+    font-weight: 600;
+    background: var(--surface-alt);
+    text-transform: uppercase;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+  #doc-content td { border: 1px solid var(--border); padding: 8px 14px; text-align: left; }
+  #doc-content a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+  #highlight-overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none; z-index: 2;
+  }
+  .hl-rect {
+    position: absolute;
+    pointer-events: auto;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: opacity 0.12s;
+  }
+  .hl-badge {
+    position: absolute;
+    width: 16px; height: 16px;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    line-height: 1;
+    font-family: var(--sans);
+    border-radius: 50%;
+  }
+
+  #popover {
+    position: fixed;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 380px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    padding: 18px;
+    z-index: 1000;
+    display: none;
+  }
+  #popover.visible { display: block; }
+
+  .popover-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 12px;
+    font-family: var(--sans);
+  }
+
+  .popover-excerpt {
+    font-size: 13px;
+    font-family: var(--display);
+    font-optical-sizing: auto;
+    font-style: italic;
+    color: var(--text-muted);
+    background: var(--surface-alt);
+    padding: 9px 12px;
+    margin-bottom: 14px;
+    max-height: 70px;
+    overflow: hidden;
+    line-height: 1.55;
+    border-left: 2px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+  }
+
+  #comment-input {
+    width: 100%;
+    min-height: 68px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-family: var(--sans);
+    line-height: 1.6;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-alt);
+    color: var(--text);
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.12s, box-shadow 0.12s;
+  }
+  #comment-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+  #comment-input::placeholder { color: var(--text-light); }
+
+  .popover-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+  .popover-hint { font-size: 10px; color: var(--text-light); letter-spacing: 0.03em; font-family: var(--sans); }
+  .popover-actions { display: flex; gap: 6px; }
+
+  #sidebar {
+    width: 296px;
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+    overflow: auto;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.25s;
+  }
+  #sidebar.hidden { width: 0; overflow: hidden; border: none; }
+
+  .sidebar-header {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .sidebar-title {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+  }
+
+  .sidebar-body { flex: 1; overflow: auto; padding: 8px 10px; }
+
+  .sidebar-empty {
+    padding: 44px 18px;
+    text-align: center;
+    color: var(--text-light);
+    font-size: 12px;
+    line-height: 1.7;
+    font-family: var(--sans);
+  }
+  .sidebar-empty .empty-icon { font-size: 22px; margin-bottom: 12px; opacity: 0.35; }
+
+  .ann-item {
+    padding: 11px 12px;
+    margin-bottom: 3px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  .ann-item:hover { background: var(--surface-alt); }
+  .ann-item.active { border-color: var(--ann-color-border) !important; background: var(--ann-color-bg) !important; }
+
+  .ann-row { display: flex; align-items: flex-start; gap: 9px; }
+
+  .ann-badge {
+    width: 17px; height: 17px;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-family: var(--sans);
+    border-radius: 50%;
+  }
+
+  .ann-body { flex: 1; min-width: 0; }
+
+  .ann-excerpt {
+    font-size: 12px;
+    font-family: var(--display);
+    font-optical-sizing: auto;
+    font-style: italic;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 5px;
+    padding: 2px 7px;
+    display: inline-block;
+    max-width: 100%;
+    border-radius: 2px;
+  }
+
+  .ann-comment { font-size: 12px; line-height: 1.55; font-family: var(--sans); }
+  .ann-actions { display: flex; gap: 5px; margin-top: 9px; margin-left: 26px; }
+
+  .ann-edit-area { margin-top: 6px; }
+  .ann-edit-textarea {
+    width: 100%;
+    min-height: 52px;
+    padding: 7px 9px;
+    font-size: 12px;
+    font-family: var(--sans);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-alt);
+    color: var(--text);
+    resize: vertical;
+    outline: none;
+  }
+  .ann-edit-actions { display: flex; gap: 5px; margin-top: 5px; }
+
+  .sidebar-footer {
+    padding: 12px 12px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sidebar-footer .btn-primary { width: 100%; padding: 9px; font-size: 12px; }
+
+  #export-view {
+    flex: 1;
+    overflow: auto;
+    padding: 40px 48px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .export-inner { max-width: 700px; width: 100%; }
+
+  .export-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 22px;
+  }
+
+  .export-header h2 {
+    font-family: var(--display);
+    font-optical-sizing: auto;
+    font-weight: 600;
+    font-size: 24px;
+    letter-spacing: -0.02em;
+    margin-bottom: 5px;
+  }
+  .export-header p { font-size: 13px; color: var(--text-muted); font-family: var(--sans); }
+
+  .copy-btn {
+    padding: 9px 22px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--sans);
+    letter-spacing: 0.01em;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.12s;
+    min-width: 120px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .copy-btn:hover { background: var(--accent-hover); }
+  .copy-btn.copied { background: #2d8a5a; }
+
+  .global-note-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 7px;
+    display: block;
+    font-family: var(--sans);
+  }
+
+  #global-note-input {
+    width: 100%;
+    padding: 9px 14px;
+    font-size: 13px;
+    font-family: var(--sans);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    margin-bottom: 18px;
+    transition: border-color 0.12s, box-shadow 0.12s;
+  }
+  #global-note-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+  #global-note-input::placeholder { color: var(--text-light); }
+
+  .prompt-box { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+
+  .prompt-box-header {
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-alt);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .prompt-box-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-family: var(--sans);
+  }
+
+  #prompt-textarea {
+    display: block;
+    width: 100%;
+    min-height: 280px;
+    padding: 18px;
+    margin: 0;
+    font-size: 13px;
+    font-family: var(--sans);
+    line-height: 1.7;
+    border: none;
+    outline: none;
+    resize: vertical;
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  #btn-new, #btn-notes, #btn-editor, #btn-export { display: none; }
+  body[data-view="editor"] #btn-new,
+  body[data-view="editor"] #btn-notes,
+  body[data-view="editor"] #btn-editor,
+  body[data-view="editor"] #btn-export,
+  body[data-view="export"] #btn-new,
+  body[data-view="export"] #btn-notes,
+  body[data-view="export"] #btn-editor,
+  body[data-view="export"] #btn-export { display: inline-flex; align-items: center; }
+
+  ::selection { background: rgba(200,32,26,0.18); color: var(--text); }
+</style>
+</head>
+<body data-view="paste">
+
+<header id="header">
+  <div class="logo">
+    <span class="logo-mark"></span>
+    <h1>Red Pen</h1>
+  </div>
+  <div class="header-actions" id="header-actions">
+    <span id="save-indicator"></span>
+    <button class="btn-icon" id="btn-theme" title="Toggle theme">&#9788;</button>
+    <button class="btn" id="btn-new">New</button>
+    <button class="btn" id="btn-notes">Notes &#9664;</button>
+    <button class="btn" id="btn-editor">Editor</button>
+    <button class="btn" id="btn-export">Export</button>
+  </div>
+</header>
+
+<div id="restore-banner">
+  <span id="restore-text"></span>
+  <div class="restore-actions">
+    <button class="btn-small" id="restore-dismiss-btn">Dismiss</button>
+    <button class="btn-small danger" id="restore-clear-btn">Clear session</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="paste-screen">
+    <div class="paste-inner">
+      <div class="paste-eyebrow">Annotation tool</div>
+      <h2>Give any AI output the <span class="accent-word">red pen</span> treatment</h2>
+      <p>
+        Paste any AI-generated text, highlight sections to leave editor&#8217;s notes &#8212;
+        what to rewrite, rethink, or rephrase. Export as a prompt to send straight back.
+      </p>
+      <textarea id="paste-input" placeholder="Paste document text here&#8230;"></textarea>
+      <div class="paste-meta">
+        <span class="paste-hint">Markdown supported &mdash; headings, bold, lists, tables, code</span>
+        <span class="paste-privacy">&#128274; Stays in your browser</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="editor-layout" style="display:none; flex:1; overflow:hidden;">
+    <div id="doc-panel">
+      <div id="doc-wrapper">
+        <div id="doc-content"></div>
+        <div id="highlight-overlay"></div>
+      </div>
+    </div>
+    <div id="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-title" id="sidebar-title">Notes</span>
+        <button class="btn-small" id="clear-all-btn" style="display:none">Clear all</button>
+      </div>
+      <div class="sidebar-body" id="sidebar-body">
+        <div class="sidebar-empty" id="sidebar-empty">
+          <div class="empty-icon">&#9998;</div>
+          Highlight any part of the text<br />to drop an editor&#8217;s note
+        </div>
+      </div>
+      <div class="sidebar-footer" id="sidebar-footer" style="display:none">
+        <button class="btn-primary" id="go-export-btn">Export prompt &rarr;</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="export-view" style="display:none;">
+    <div class="export-inner">
+      <div class="export-header">
+        <div>
+          <h2>Export Prompt</h2>
+          <p>Edit if needed, then copy and send back to your AI</p>
+        </div>
+        <button class="copy-btn" id="copy-btn">Copy prompt</button>
+      </div>
+      <label class="global-note-label" for="global-note-input">Overall note (optional)</label>
+      <input type="text" id="global-note-input" placeholder="e.g. Keep the tone more casual throughout" />
+      <div class="prompt-box">
+        <div class="prompt-box-header">
+          <span class="prompt-box-label">Prompt preview</span>
+          <button class="btn-small" id="reset-prompt-btn" style="display:none">Reset</button>
+        </div>
+        <textarea id="prompt-textarea"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="popover">
+  <div class="popover-label">Add note</div>
+  <div class="popover-excerpt" id="popover-excerpt"></div>
+  <textarea id="comment-input" placeholder="What should change? (optional)"></textarea>
+  <div class="popover-footer">
+    <span class="popover-hint" id="popover-hint"></span>
+    <div class="popover-actions">
+      <button class="btn-small" id="popover-cancel">Cancel</button>
+      <button class="btn-primary" id="popover-add" style="padding:7px 16px;font-size:12px;">Add note</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  var STORAGE_KEY = 'redpen_session_v1';
+
+  var docText = '';
+  var annotations = [];
+  var activeAnnotation = null;
+  var editingAnnotation = null;
+  var pendingPopover = null;
+  var dark = false;
+  var sidebarVisible = true;
+  var currentView = 'paste';
+  var promptEdited = null;
+  var sourceMap = null;
+
+  var COLORS = [
+    { bg: 'rgba(200,32,26,0.10)', border: '#c8201a' },
+    { bg: 'rgba(220,155,30,0.12)', border: '#c88a10' },
+    { bg: 'rgba(40,160,100,0.10)', border: '#289060' },
+    { bg: 'rgba(60,120,220,0.10)', border: '#3c78dc' },
+    { bg: 'rgba(150,80,210,0.10)', border: '#9650d2' },
+  ];
+
+  function genId() { return Math.random().toString(36).substr(2, 9); }
+
+  var body              = document.body;
+  var pasteScreen       = document.getElementById('paste-screen');
+  var editorLayout      = document.getElementById('editor-layout');
+  var exportViewEl      = document.getElementById('export-view');
+  var saveIndicator     = document.getElementById('save-indicator');
+  var restoreBanner     = document.getElementById('restore-banner');
+  var restoreText       = document.getElementById('restore-text');
+  var restoreDismissBtn = document.getElementById('restore-dismiss-btn');
+  var restoreClearBtn   = document.getElementById('restore-clear-btn');
+  var docContent        = document.getElementById('doc-content');
+  var docWrapper        = document.getElementById('doc-wrapper');
+  var docPanel          = document.getElementById('doc-panel');
+  var hlOverlay         = document.getElementById('highlight-overlay');
+  var sidebar           = document.getElementById('sidebar');
+  var sidebarTitle      = document.getElementById('sidebar-title');
+  var sidebarBody       = document.getElementById('sidebar-body');
+  var sidebarEmpty      = document.getElementById('sidebar-empty');
+  var sidebarFooter     = document.getElementById('sidebar-footer');
+  var clearAllBtn       = document.getElementById('clear-all-btn');
+  var popoverEl         = document.getElementById('popover');
+  var popoverExcerpt    = document.getElementById('popover-excerpt');
+  var commentInput      = document.getElementById('comment-input');
+  var popoverCancel     = document.getElementById('popover-cancel');
+  var popoverAdd        = document.getElementById('popover-add');
+  var popoverHint       = document.getElementById('popover-hint');
+  var goExportBtn       = document.getElementById('go-export-btn');
+  var copyBtn           = document.getElementById('copy-btn');
+  var globalNoteInput   = document.getElementById('global-note-input');
+  var promptTextarea    = document.getElementById('prompt-textarea');
+  var resetPromptBtn    = document.getElementById('reset-prompt-btn');
+  var pasteInput        = document.getElementById('paste-input');
+  var btnTheme  = document.getElementById('btn-theme');
+  var btnNew    = document.getElementById('btn-new');
+  var btnNotes  = document.getElementById('btn-notes');
+  var btnEditor = document.getElementById('btn-editor');
+  var btnExport = document.getElementById('btn-export');
+
+  btnTheme.addEventListener('click', toggleTheme);
+  btnNew.addEventListener('click', function() {
+    if (annotations.length > 0 && !confirm('Clear all and start fresh?')) return;
+    clearSession(); resetAll(); showPaste();
+  });
+  btnNotes.addEventListener('click', toggleSidebar);
+  btnEditor.addEventListener('click', function() { if (currentView !== 'editor') showEditor(); });
+  btnExport.addEventListener('click', function() { if (currentView !== 'export') showExport(); });
+
+  var saveDebounce = null;
+  var saveFailed = false;
+
+  function saveSession() {
+    if (!docText) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ docText: docText, annotations: annotations, savedAt: Date.now() }));
+      saveFailed = false;
+      flashSaved();
+    } catch(e) {
+      saveFailed = true;
+      showSaveError();
+    }
+  }
+
+  function scheduleSave() {
+    showSaving();
+    if (saveDebounce) clearTimeout(saveDebounce);
+    saveDebounce = setTimeout(saveSession, 800);
+  }
+
+  function clearSession() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+    saveIndicator.style.display = 'none';
+  }
+
+  function showSaving() {
+    if (saveFailed) return;
+    saveIndicator.style.display = '';
+    saveIndicator.className = 'saving';
+    saveIndicator.textContent = 'saving\u2026';
+  }
+
+  function showSaveError() {
+    saveIndicator.style.display = '';
+    saveIndicator.className = '';
+    saveIndicator.textContent = 'save failed (localStorage unavailable)';
+  }
+
+  function flashSaved() {
+    saveIndicator.style.display = '';
+    saveIndicator.className = 'saved';
+    saveIndicator.textContent = '\u2713 saved';
+    setTimeout(function() {
+      saveIndicator.className = '';
+      saveIndicator.textContent = 'auto-saved';
+    }, 2000);
+  }
+
+  function loadSession() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      var payload = JSON.parse(raw);
+      if (!payload || !payload.docText) return;
+
+      var age = Date.now() - (payload.savedAt || 0);
+      var ageStr = age < 60000 ? 'just now'
+                 : age < 3600000 ? Math.round(age / 60000) + 'm ago'
+                 : age < 86400000 ? Math.round(age / 3600000) + 'h ago'
+                 : Math.round(age / 86400000) + 'd ago';
+
+      var annCount = (payload.annotations || []).length;
+      var docPreview = payload.docText.slice(0, 60).replace(/\n/g, ' ');
+      restoreText.textContent =
+        '\u21BA Session restored (' + ageStr + '): \u201C' + docPreview +
+        (payload.docText.length > 60 ? '\u2026' : '') + '\u201D' +
+        (annCount > 0 ? ' \u00B7 ' + annCount + ' note' + (annCount !== 1 ? 's' : '') : '');
+
+      restoreBanner.style.display = 'flex';
+      docText = payload.docText;
+      annotations = payload.annotations || [];
+      _lineStarts = null;
+      var result = buildDoc(docText);
+      sourceMap = result.map;
+      docContent.innerHTML = result.html;
+      showEditor();
+
+      saveIndicator.style.display = '';
+      saveIndicator.className = '';
+      saveIndicator.textContent = 'auto-saved';
+    } catch(e) {
+      try { localStorage.removeItem(STORAGE_KEY); } catch(e2) {}
+    }
+  }
+
+  restoreDismissBtn.addEventListener('click', function() { restoreBanner.style.display = 'none'; });
+  restoreClearBtn.addEventListener('click', function() {
+    clearSession();
+    restoreBanner.style.display = 'none';
+    resetAll();
+    showPaste();
+  });
+
+  function buildDoc(raw) {
+    if (!raw) return { html: '', map: new Int32Array(0) };
+    var rawPositions = [], htmlParts = [], lines = raw.split('\n');
+
+    function emitHtml(str) { htmlParts.push(str); }
+    function emitText(text, rawOff) {
+      htmlParts.push(escHtml(text));
+      for (var k = 0; k < text.length; k++) rawPositions.push(rawOff + k);
+    }
+    function emitInline(text, rawOff) {
+      var i = 0;
+      while (i < text.length) {
+        if (text[i] === '*' && text[i+1] === '*' && text[i+2] === '*') {
+          var end = text.indexOf('***', i + 3);
+          if (end !== -1) { emitHtml('<strong><em>'); emitInline(text.slice(i+3, end), rawOff+i+3); emitHtml('</em></strong>'); i = end+3; continue; }
+        }
+        if (text[i] === '*' && text[i+1] === '*') {
+          var end = text.indexOf('**', i + 2);
+          if (end !== -1) { emitHtml('<strong>'); emitInline(text.slice(i+2, end), rawOff+i+2); emitHtml('</strong>'); i = end+2; continue; }
+        }
+        if (text[i] === '*' && text[i+1] !== '*') {
+          var end = text.indexOf('*', i + 1);
+          if (end !== -1) { emitHtml('<em>'); emitInline(text.slice(i+1, end), rawOff+i+1); emitHtml('</em>'); i = end+1; continue; }
+        }
+        if (text[i] === '`') {
+          var end = text.indexOf('`', i + 1);
+          if (end !== -1) { emitHtml('<code>'); emitText(text.slice(i+1, end), rawOff+i+1); emitHtml('</code>'); i = end+1; continue; }
+        }
+        if (text[i] === '[') {
+          var cb = text.indexOf(']', i + 1);
+          if (cb !== -1 && text[cb+1] === '(') {
+            var cp = text.indexOf(')', cb + 2);
+            if (cp !== -1) {
+              var rawHref = text.slice(cb + 2, cp).trim();
+              var safeHref = sanitizeHref(rawHref);
+              if (safeHref) {
+                emitHtml('<a href="' + escHtml(safeHref) + '" target="_blank" rel="noopener noreferrer">');
+              } else {
+                emitHtml('<span>');
+              }
+              emitInline(text.slice(i+1,cb), rawOff+i+1);
+              emitHtml(safeHref ? '</a>' : '</span>');
+              i = cp+1;
+              continue;
+            }
+          }
+        }
+        htmlParts.push(escHtml(text[i]));
+        rawPositions.push(rawOff + i);
+        i++;
+      }
+    }
+    function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function sanitizeHref(href) {
+      if (!href) return '';
+      if (/^mailto:/i.test(href)) return href;
+      if (/^https?:\/\//i.test(href)) return href;
+      return '';
+    }
+
+    var i = 0;
+    while (i < lines.length) {
+      var line = lines[i];
+      var rawLineOff = computeLineStart(raw, lines, i);
+
+      if (line.match(/^```/)) {
+        emitHtml('<pre><code>'); i++;
+        while (i < lines.length && !lines[i].match(/^```/)) {
+          var cro = computeLineStart(raw, lines, i);
+          emitText(lines[i], cro);
+          if (i+1 < lines.length && !lines[i+1].match(/^```/)) emitText('\n', cro + lines[i].length);
+          i++;
+        }
+        emitHtml('</code></pre>'); i++; continue;
+      }
+
+      if (line.match(/^\|/)) {
+        var tls = [], tlStarts = [];
+        while (i < lines.length && lines[i].match(/^\|/)) { tls.push(lines[i]); tlStarts.push(computeLineStart(raw, lines, i)); i++; }
+        if (tls.length >= 2) {
+          emitHtml('<table><thead><tr>');
+          var hc = tls[0].split('|').slice(1,-1), ho = tlStarts[0]+1;
+          for (var ci=0; ci<hc.length; ci++) { emitHtml('<th>'); emitInline(hc[ci].trim(), ho+(hc[ci].length-hc[ci].trimLeft().length)); emitHtml('</th>'); ho+=hc[ci].length+1; }
+          emitHtml('</tr></thead><tbody>');
+          for (var ti=1; ti<tls.length; ti++) {
+            if (/^[\s|:-]+$/.test(tls[ti])) continue;
+            emitHtml('<tr>');
+            var rc = tls[ti].split('|').slice(1,-1), ro2 = tlStarts[ti]+1;
+            for (var ci2=0; ci2<rc.length; ci2++) { emitHtml('<td>'); emitInline(rc[ci2].trim(), ro2+(rc[ci2].length-rc[ci2].trimLeft().length)); emitHtml('</td>'); ro2+=rc[ci2].length+1; }
+            emitHtml('</tr>');
+          }
+          emitHtml('</tbody></table>');
+        }
+        continue;
+      }
+
+      var hm = line.match(/^(#{1,4}) (.+)$/);
+      if (hm) { emitHtml('<h'+hm[1].length+'>'); emitInline(hm[2], rawLineOff+hm[1].length+1); emitHtml('</h'+hm[1].length+'>'); i++; continue; }
+      if (line.match(/^(---|\*\*\*|___)$/)) { emitHtml('<hr/>'); i++; continue; }
+      var bq = line.match(/^> (.+)$/);
+      if (bq) { emitHtml('<blockquote>'); emitInline(bq[1], rawLineOff+2); emitHtml('</blockquote>'); i++; continue; }
+
+      if (line.match(/^[-*] /)) {
+        emitHtml('<ul>');
+        while (i < lines.length && lines[i].match(/^[-*] /)) { var ulo=computeLineStart(raw,lines,i); emitHtml('<li>'); emitInline(lines[i].slice(2), ulo+2); emitHtml('</li>'); i++; }
+        emitHtml('</ul>'); continue;
+      }
+      if (line.match(/^\d+\. /)) {
+        emitHtml('<ol>');
+        while (i < lines.length && lines[i].match(/^\d+\. /)) { var olo=computeLineStart(raw,lines,i); var pfx=lines[i].match(/^\d+\. /)[0]; emitHtml('<li>'); emitInline(lines[i].slice(pfx.length), olo+pfx.length); emitHtml('</li>'); i++; }
+        emitHtml('</ol>'); continue;
+      }
+      if (line.trim() === '') { i++; continue; }
+      emitHtml('<p>'); emitInline(line, rawLineOff); emitHtml('</p>'); i++;
+    }
+
+    var map = new Int32Array(rawPositions.length);
+    for (var m = 0; m < rawPositions.length; m++) map[m] = rawPositions[m];
+    return { html: htmlParts.join(''), map: map };
+  }
+
+  var _lineStarts = null;
+  function computeLineStart(raw, lines, lineIndex) {
+    if (!_lineStarts || _lineStarts.length !== lines.length + 1) {
+      _lineStarts = new Int32Array(lines.length + 1);
+      var off = 0;
+      for (var li = 0; li < lines.length; li++) { _lineStarts[li] = off; off += lines[li].length + 1; }
+      _lineStarts[lines.length] = off;
+    }
+    return lineIndex < _lineStarts.length ? _lineStarts[lineIndex] : raw.length;
+  }
+
+  function setView(view) {
+    currentView = view;
+    body.setAttribute('data-view', view);
+    pasteScreen.style.display    = view === 'paste'  ? 'flex' : 'none';
+    editorLayout.style.display   = view === 'editor' ? 'flex' : 'none';
+    exportViewEl.style.display   = view === 'export' ? 'flex' : 'none';
+    updateHeaderButtons();
+  }
+
+  function updateHeaderButtons() {
+    var noteCount = annotations.length > 0 ? ' (' + annotations.length + ')' : '';
+    btnTheme.textContent = dark ? '\u2600' : '\u263D';
+    btnNotes.textContent = 'Notes' + noteCount + ' ' + (sidebarVisible ? '\u25C0' : '\u25B6');
+    btnEditor.className = 'btn' + (currentView === 'editor' ? ' active' : '');
+    btnExport.className = 'btn' + (currentView === 'export' ? ' active' : '');
+    btnExport.textContent = 'Export' + noteCount;
+  }
+
+  function showPaste() { setView('paste'); }
+  function showEditor() { setView('editor'); scheduleHighlightRebuild(); }
+  function showExport() { setView('export'); renderExport(); }
+
+  function toggleTheme() {
+    dark = !dark;
+    if (dark) { body.classList.add('dark'); }
+    else { body.classList.remove('dark'); }
+    body.setAttribute('data-view', currentView);
+    updateHeaderButtons();
+  }
+
+  function toggleSidebar() {
+    sidebarVisible = !sidebarVisible;
+    sidebar.classList.toggle('hidden', !sidebarVisible);
+    updateHeaderButtons();
+    scheduleHighlightRebuild(300);
+  }
+
+  function resetAll() {
+    if (parseDebounce) { clearTimeout(parseDebounce); parseDebounce = null; }
+    if (saveDebounce)  { clearTimeout(saveDebounce);  saveDebounce  = null; }
+    docText = ''; annotations = []; activeAnnotation = null;
+    editingAnnotation = null; pendingPopover = null; promptEdited = null;
+    sourceMap = null; _lineStarts = null;
+    pasteInput.value = ''; globalNoteInput.value = '';
+    docContent.innerHTML = '';
+    hlOverlay.innerHTML = '';
+    sidebarTitle.textContent = 'Notes';
+    clearAllBtn.style.display = 'none';
+    sidebarFooter.style.display = 'none';
+    sidebarBody.innerHTML = '';
+    sidebarBody.appendChild(sidebarEmpty);
+    sidebarEmpty.style.display = '';
+  }
+
+  var parseDebounce = null;
+  pasteInput.addEventListener('input', function() {
+    if (parseDebounce) clearTimeout(parseDebounce);
+    if (!pasteInput.value.trim()) return;
+    parseDebounce = setTimeout(function() {
+      parseDebounce = null;
+      docText = pasteInput.value;
+      _lineStarts = null;
+      var result = buildDoc(docText);
+      sourceMap = result.map;
+      docContent.innerHTML = result.html;
+      showEditor();
+      scheduleSave();
+    }, 150);
+  });
+
+  docContent.addEventListener('mouseup', handleTextSelect);
+
+  function handleTextSelect() {
+    if (!sourceMap) return;
+    var sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !docContent.contains(sel.anchorNode)) return;
+    var range = sel.getRangeAt(0);
+    if (!sel.toString().trim()) return;
+
+    var walker = document.createTreeWalker(docContent, NodeFilter.SHOW_TEXT, null, false);
+    var charCount = 0, rendStart = null, rendEnd = null;
+    var startNode = range.startContainer;
+    var startOffset = range.startOffset;
+    var endNode = range.endContainer;
+    var endOffset = range.endOffset;
+    if (range.collapsed) return;
+    try {
+      var isReversed = range.startContainer.compareDocumentPosition(range.endContainer) & Node.DOCUMENT_POSITION_PRECEDING;
+      if (isReversed) {
+        startNode = range.endContainer;
+        startOffset = range.endOffset;
+        endNode = range.startContainer;
+        endOffset = range.startOffset;
+      }
+    } catch (e) {}
+    while (walker.nextNode()) {
+      var node = walker.currentNode;
+      if (node === startNode) rendStart = charCount + startOffset;
+      if (node === endNode)   { rendEnd = charCount + endOffset; break; }
+      charCount += node.textContent.length;
+    }
+    if (rendStart === null || rendEnd === null || rendStart >= rendEnd) return;
+
+    rendStart = Math.max(0, Math.min(rendStart, sourceMap.length - 1));
+    rendEnd   = Math.max(0, Math.min(rendEnd,   sourceMap.length));
+
+    var rawStart = sourceMap[rendStart];
+    var rawEnd   = rendEnd >= sourceMap.length ? docText.length : sourceMap[rendEnd];
+    if (rawEnd <= rawStart) return;
+
+    var hasOverlap = annotations.some(function(a) { return rawStart < a.endOffset && rawEnd > a.startOffset; });
+    if (hasOverlap) { sel.removeAllRanges(); return; }
+
+    pendingPopover = { startOffset: rawStart, endOffset: rawEnd, text: docText.slice(rawStart, rawEnd) };
+    showPopover(pendingPopover.text);
+    sel.removeAllRanges();
+  }
+
+  function showPopover(text) {
+    var preview = text.replace(/\*\*\*(.+?)\*\*\*/g,'$1').replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/`([^`]+)`/g,'$1');
+    popoverExcerpt.textContent = '\u201C' + (preview.length > 120 ? preview.slice(0,120)+'\u2026' : preview) + '\u201D';
+    commentInput.value = '';
+    var isMac = (navigator.userAgentData ? navigator.userAgentData.platform : navigator.platform || '').indexOf('Mac') > -1;
+    popoverHint.textContent = (isMac ? '\u2318' : 'Ctrl') + '+Enter to save \u00B7 Esc to cancel';
+    popoverEl.classList.add('visible');
+    setTimeout(function() { commentInput.focus(); }, 50);
+  }
+
+  function hidePopover() { popoverEl.classList.remove('visible'); pendingPopover = null; commentInput.value = ''; }
+
+  popoverCancel.addEventListener('click', hidePopover);
+  popoverAdd.addEventListener('click', addAnnotation);
+  commentInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) addAnnotation();
+    if (e.key === 'Escape') hidePopover();
+  });
+  document.addEventListener('mousedown', function(e) {
+    if (popoverEl.classList.contains('visible') && !popoverEl.contains(e.target)) hidePopover();
+  });
+
+  function addAnnotation() {
+    if (!pendingPopover) return;
+    annotations.push({
+      id: genId(), startOffset: pendingPopover.startOffset, endOffset: pendingPopover.endOffset,
+      text: pendingPopover.text, comment: commentInput.value.trim(),
+      color: annotations.length % COLORS.length,
+    });
+    annotations.sort(function(a,b) { return a.startOffset - b.startOffset; });
+    hidePopover(); renderSidebar(); scheduleHighlightRebuild(); updateHeaderButtons();
+    scheduleSave();
+  }
+
+  function removeAnnotation(id) {
+    annotations = annotations.filter(function(a) { return a.id !== id; });
+    if (activeAnnotation === id) activeAnnotation = null;
+    if (editingAnnotation === id) editingAnnotation = null;
+    renderSidebar(); scheduleHighlightRebuild(); updateHeaderButtons();
+    scheduleSave();
+  }
+
+  function updateAnnotationComment(id, comment) {
+    annotations = annotations.map(function(a) { return a.id === id ? Object.assign({}, a, { comment: comment }) : a; });
+    editingAnnotation = null; renderSidebar();
+    scheduleSave();
+  }
+
+  function renderSidebar() {
+    var count = annotations.length;
+    sidebarTitle.textContent = 'Notes' + (count > 0 ? ' (' + count + ')' : '');
+    clearAllBtn.style.display = count > 0 ? '' : 'none';
+    sidebarFooter.style.display = count > 0 ? '' : 'none';
+    if (count === 0) { sidebarBody.innerHTML = ''; sidebarBody.appendChild(sidebarEmpty); sidebarEmpty.style.display = ''; return; }
+    sidebarEmpty.style.display = 'none'; sidebarBody.innerHTML = '';
+
+    annotations.forEach(function(ann, i) {
+      var c = COLORS[ann.color];
+      var isActive  = activeAnnotation  === ann.id;
+      var isEditing = editingAnnotation === ann.id;
+      var item = document.createElement('div');
+      item.className = 'ann-item' + (isActive ? ' active' : '');
+      item.style.setProperty('--ann-color-border', c.border);
+      item.style.setProperty('--ann-color-bg', c.bg);
+      item.addEventListener('click', function() { activeAnnotation = (activeAnnotation === ann.id) ? null : ann.id; renderSidebar(); scheduleHighlightRebuild(); });
+
+      var row = document.createElement('div'); row.className = 'ann-row';
+      var badge = document.createElement('div'); badge.className = 'ann-badge';
+      badge.style.backgroundColor = c.border; badge.textContent = i + 1;
+
+      var bodyDiv = document.createElement('div'); bodyDiv.className = 'ann-body';
+      var displayText = ann.text.replace(/\*\*\*(.+?)\*\*\*/g,'$1').replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/`([^`]+)`/g,'$1');
+      var excerpt = document.createElement('div'); excerpt.className = 'ann-excerpt';
+      excerpt.style.backgroundColor = c.bg;
+      excerpt.textContent = '\u201C' + (displayText.length > 45 ? displayText.slice(0,45)+'\u2026' : displayText) + '\u201D';
+      bodyDiv.appendChild(excerpt);
+
+      if (isEditing) {
+        var editArea = document.createElement('div'); editArea.className = 'ann-edit-area';
+        editArea.addEventListener('click', function(e) { e.stopPropagation(); });
+        var ta = document.createElement('textarea'); ta.className = 'ann-edit-textarea'; ta.value = ann.comment;
+        ta.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) updateAnnotationComment(ann.id, ta.value.trim());
+          if (e.key === 'Escape') { editingAnnotation = null; renderSidebar(); }
+          e.stopPropagation();
+        });
+        var ea = document.createElement('div'); ea.className = 'ann-edit-actions';
+        var sv = document.createElement('button'); sv.className = 'btn-small';
+        sv.style.cssText = 'background:var(--accent);color:#fff;border:none';
+        sv.textContent = 'Save';
+        sv.addEventListener('click', function(e) { e.stopPropagation(); updateAnnotationComment(ann.id, ta.value.trim()); });
+        var cn = document.createElement('button'); cn.className = 'btn-small'; cn.textContent = 'Cancel';
+        cn.addEventListener('click', function(e) { e.stopPropagation(); editingAnnotation = null; renderSidebar(); });
+        ea.appendChild(sv); ea.appendChild(cn); editArea.appendChild(ta); editArea.appendChild(ea); bodyDiv.appendChild(editArea);
+        setTimeout(function() { ta.focus(); }, 30);
+      } else {
+        var cd = document.createElement('div'); cd.className = 'ann-comment';
+        cd.style.color = ann.comment ? 'var(--text)' : 'var(--text-muted)';
+        cd.style.fontStyle = ann.comment ? 'normal' : 'italic';
+        cd.textContent = ann.comment || 'no comment';
+        bodyDiv.appendChild(cd);
+      }
+
+      row.appendChild(badge); row.appendChild(bodyDiv); item.appendChild(row);
+
+      if (isActive && !isEditing) {
+        var actions = document.createElement('div'); actions.className = 'ann-actions';
+        actions.addEventListener('click', function(e) { e.stopPropagation(); });
+        var editBtn = document.createElement('button'); editBtn.className = 'btn-small'; editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', function(e) { e.stopPropagation(); editingAnnotation = ann.id; renderSidebar(); });
+        var removeBtn = document.createElement('button'); removeBtn.className = 'btn-small danger'; removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', function(e) { e.stopPropagation(); removeAnnotation(ann.id); });
+        actions.appendChild(editBtn); actions.appendChild(removeBtn); item.appendChild(actions);
+      }
+      sidebarBody.appendChild(item);
+    });
+  }
+
+  clearAllBtn.addEventListener('click', function() {
+    annotations = []; activeAnnotation = null; editingAnnotation = null;
+    renderSidebar(); scheduleHighlightRebuild(); updateHeaderButtons();
+    scheduleSave();
+  });
+  goExportBtn.addEventListener('click', showExport);
+
+  var hlTimeout = null;
+  function scheduleHighlightRebuild(delay) {
+    if (hlTimeout) clearTimeout(hlTimeout);
+    hlTimeout = setTimeout(rebuildHighlights, delay || 60);
+  }
+  window.addEventListener('resize', function() { scheduleHighlightRebuild(150); });
+
+  docPanel.addEventListener('scroll', function() { rebuildHighlights(); });
+
+  function rebuildHighlights() {
+    hlOverlay.innerHTML = '';
+    if (!docText || !sourceMap || annotations.length === 0) return;
+    var textNodes = [];
+    var walker = document.createTreeWalker(docContent, NodeFilter.SHOW_TEXT, null, false);
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+    var charMap = [];
+    for (var ni = 0; ni < textNodes.length; ni++) {
+      var txt = textNodes[ni].textContent;
+      for (var ci = 0; ci < txt.length; ci++) charMap.push({ node: textNodes[ni], offset: ci });
+    }
+    if (charMap.length === 0) return;
+
+    var rawToRend = new Int32Array(docText.length).fill(-1);
+    for (var rp = 0; rp < sourceMap.length; rp++) { var rawP = sourceMap[rp]; if (rawToRend[rawP] === -1) rawToRend[rawP] = rp; }
+
+    var wrapperRect = docWrapper.getBoundingClientRect();
+    var scrollTop   = docPanel.scrollTop;
+    var scrollLeft  = docPanel.scrollLeft;
+
+    annotations.forEach(function(ann, idx) {
+      var rendStart = rawToRend[Math.min(ann.startOffset, docText.length-1)];
+      if (rendStart === -1) { for (var rs=ann.startOffset; rs<docText.length && rendStart===-1; rs++) rendStart=rawToRend[rs]; }
+      if (rendStart === -1 || rendStart >= charMap.length) return;
+      var rendEnd = rawToRend[Math.min(ann.endOffset-1, docText.length-1)];
+      if (rendEnd === -1) { for (var re=ann.endOffset-1; re>=0 && rendEnd===-1; re--) rendEnd=rawToRend[re]; }
+      if (rendEnd === -1) return;
+      rendEnd = Math.min(rendEnd, charMap.length-1);
+      var startEntry = charMap[rendStart], endEntry = charMap[rendEnd];
+      if (!startEntry || !endEntry) return;
+      try {
+        var range = document.createRange();
+        range.setStart(startEntry.node, startEntry.offset);
+        range.setEnd(endEntry.node, endEntry.offset+1);
+        var clientRects = range.getClientRects();
+        var annRects = [];
+        for (var r=0; r<clientRects.length; r++) {
+          var cr = clientRects[r]; if (cr.width<1||cr.height<1) continue;
+          annRects.push({
+            x: cr.left - wrapperRect.left + scrollLeft,
+            y: cr.top  - wrapperRect.top  + scrollTop,
+            w: cr.width,
+            h: cr.height
+          });
+        }
+        var merged = [];
+        annRects.forEach(function(rect) {
+          for (var m=0; m<merged.length; m++) {
+            var mr=merged[m], ov=Math.min(mr.y+mr.h,rect.y+rect.h)-Math.max(mr.y,rect.y);
+            if (ov>Math.min(mr.h,rect.h)*0.4) {
+              merged[m]={x:Math.min(mr.x,rect.x),y:Math.min(mr.y,rect.y),w:Math.max(mr.x+mr.w,rect.x+rect.w)-Math.min(mr.x,rect.x),h:Math.max(mr.y+mr.h,rect.y+rect.h)-Math.min(mr.y,rect.y)};
+              return;
+            }
+          }
+          merged.push(Object.assign({},rect));
+        });
+        var c=COLORS[ann.color], isActive=activeAnnotation===ann.id;
+        merged.forEach(function(rect,ri2) {
+          var div=document.createElement('div'); div.className='hl-rect';
+          div.style.left=rect.x+'px'; div.style.top=rect.y+'px';
+          div.style.width=rect.w+'px'; div.style.height=rect.h+'px';
+          div.style.backgroundColor=c.border; div.style.opacity=isActive?'0.30':'0.15';
+          div.addEventListener('click',function(e){
+            e.stopPropagation();
+            activeAnnotation=(activeAnnotation===ann.id)?null:ann.id;
+            renderSidebar();scheduleHighlightRebuild();
+          });
+          hlOverlay.appendChild(div);
+          if (ri2===0) {
+            var bdg=document.createElement('div'); bdg.className='hl-badge';
+            bdg.style.left=(rect.x-8)+'px'; bdg.style.top=(rect.y-6)+'px';
+            bdg.style.backgroundColor=c.border; bdg.textContent=idx+1;
+            hlOverlay.appendChild(bdg);
+          }
+        });
+      } catch(e) {}
+    });
+  }
+
+  function generatePrompt() {
+    if (annotations.length === 0) return 'No annotations yet.';
+    var gn = globalNoteInput.value.trim();
+    var sorted = annotations.slice().sort(function(a,b) { return a.startOffset-b.startOffset; });
+    var out = gn ? 'Overall note: '+gn+'\n\nPlease apply the following edits to the document:\n\n' : 'Please apply the following edits to the document:\n\n';
+    sorted.forEach(function(ann,i) {
+      out+='\u2014 Edit '+(i+1)+' \u2014\n';
+      out+='Section: \u201C'+ann.text+'\u201D\n';
+      out+='Comment: '+(ann.comment||'(no comment)')+'\n\n';
+    });
+    out+='\u2014\nPlease return the full updated document with these changes applied.';
+    return out;
+  }
+
+  function renderExport() {
+    if (promptEdited === null) {
+      promptTextarea.value = generatePrompt();
+      resetPromptBtn.style.display = 'none';
+    }
+  }
+
+  promptTextarea.addEventListener('input', function() {
+    promptEdited = promptTextarea.value;
+    resetPromptBtn.style.display = '';
+  });
+
+  globalNoteInput.addEventListener('input', function() { if (promptEdited===null) promptTextarea.value=generatePrompt(); });
+  resetPromptBtn.addEventListener('click', function() { promptEdited=null; promptTextarea.value=generatePrompt(); resetPromptBtn.style.display='none'; });
+
+  copyBtn.addEventListener('click', function() {
+    var text = promptEdited!==null ? promptEdited : generatePrompt();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(flashCopied);
+    } else {
+      var ta=document.createElement('textarea'); ta.value=text;
+      ta.style.cssText='position:fixed;top:-9999px';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try{document.execCommand('copy');}catch(e){}
+      document.body.removeChild(ta); flashCopied();
+    }
+  });
+
+  function flashCopied() {
+    copyBtn.textContent='\u2713 Copied';
+    copyBtn.classList.add('copied');
+    setTimeout(function(){ copyBtn.textContent='Copy prompt'; copyBtn.classList.remove('copied'); }, 2000);
+  }
+
+  updateHeaderButtons();
+  renderSidebar();
+  loadSession();
+
+})();
+</script>
+</body>
+</html>
