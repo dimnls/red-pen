@@ -285,7 +285,7 @@
     z-index: 1;
     font-family: var(--sans);
   }
-  #doc-content h1 { font-family: var(--display); font-optical-sizing: auto; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin: 36px 0 14px; line-height: 1.15; color: var(--text); font-style: normal; }
+  #doc-content h1 { font-family: var(--display); font-optical-sizing: auto; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin: 36px 0 14px; line-height: 1.15; color: var(--text); }
   #doc-content h2 { font-family: var(--display); font-optical-sizing: auto; font-size: 21px; font-weight: 600; letter-spacing: -0.015em; margin: 28px 0 10px; line-height: 1.25; color: var(--text); }
   #doc-content h3 { font-family: var(--sans); font-size: 13px; font-weight: 600; margin: 22px 0 6px; line-height: 1.4; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
   #doc-content h4 { font-family: var(--sans); font-size: 13px; font-weight: 600; margin: 18px 0 4px; line-height: 1.4; color: var(--text-muted); }
@@ -1270,7 +1270,7 @@
   }
   window.addEventListener('resize', function() { scheduleHighlightRebuild(150); });
 
-  // On scroll: rebuild synchronously (no debounce) so highlights never lag behind.
+  // On scroll: rebuild synchronously (no debounce) so highlights never lag.
   docPanel.addEventListener('scroll', function() { rebuildHighlights(); });
 
   function rebuildHighlights() {
