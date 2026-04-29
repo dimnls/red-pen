@@ -1271,9 +1271,8 @@
     hlTimeout = setTimeout(rebuildHighlights, delay || 60);
   }
   window.addEventListener('resize', function() { scheduleHighlightRebuild(); });
-
-  // Rebuild highlights on scroll so rects stay anchored to content
-  docPanel.addEventListener('scroll', function() { scheduleHighlightRebuild(); });
+  // NOTE: No scroll listener needed — the overlay is position:absolute inside
+  // #doc-wrapper which scrolls with the content, so highlights move with the page automatically.
 
   function rebuildHighlights() {
     hlOverlay.innerHTML = '';
@@ -1291,11 +1290,11 @@
     var rawToRend = new Int32Array(docText.length).fill(-1);
     for (var rp = 0; rp < sourceMap.length; rp++) { var rawP = sourceMap[rp]; if (rawToRend[rawP] === -1) rawToRend[rawP] = rp; }
 
-    // Use docWrapper's position in the viewport, then adjust for docPanel scroll
-    // so the overlay rects are in the coordinate space of the absolutely-positioned overlay
+    // The overlay is position:absolute inside #doc-wrapper, so coordinates must be
+    // relative to #doc-wrapper's top-left. Both getBoundingClientRect() values are
+    // viewport-relative and already scroll-compensated, so simple subtraction is correct.
+    // Do NOT add scrollTop/scrollLeft — that double-counts the scroll offset.
     var wrapperRect = docWrapper.getBoundingClientRect();
-    var scrollTop  = docPanel.scrollTop;
-    var scrollLeft = docPanel.scrollLeft;
 
     annotations.forEach(function(ann, idx) {
       var rendStart = rawToRend[Math.min(ann.startOffset, docText.length-1)];
@@ -1315,11 +1314,9 @@
         var annRects = [];
         for (var r=0; r<clientRects.length; r++) {
           var cr = clientRects[r]; if (cr.width<1||cr.height<1) continue;
-          // Convert from viewport-relative to overlay-relative by:
-          // subtracting wrapper's viewport position, then adding scroll offset
           annRects.push({
-            x: cr.left - wrapperRect.left + scrollLeft,
-            y: cr.top  - wrapperRect.top  + scrollTop,
+            x: cr.left - wrapperRect.left,
+            y: cr.top  - wrapperRect.top,
             w: cr.width,
             h: cr.height
           });
