@@ -1237,10 +1237,11 @@
     if (hlTimeout) clearTimeout(hlTimeout);
     hlTimeout = setTimeout(rebuildHighlights, delay || 60);
   }
-  window.addEventListener('resize', function() { scheduleHighlightRebuild(); });
-  // Rebuild on scroll: clientRects are viewport-relative so when the panel scrolls
-  // we need to recalculate to keep highlights aligned with their text.
-  docPanel.addEventListener('scroll', function() { scheduleHighlightRebuild(); });
+  window.addEventListener('resize', function() { scheduleHighlightRebuild(150); });
+
+  // On scroll: rebuild synchronously (no debounce) so highlights never lag behind.
+  // rebuildHighlights() is pure DOM rect math — fast enough to run on every scroll event.
+  docPanel.addEventListener('scroll', function() { rebuildHighlights(); });
 
   function rebuildHighlights() {
     hlOverlay.innerHTML = '';
@@ -1261,8 +1262,8 @@
     // clientRects from Range.getClientRects() are viewport-relative.
     // The overlay is position:absolute inside #doc-wrapper (position:relative).
     // To convert: subtract wrapperRect (viewport pos of wrapper's top-left),
-    // then add docPanel scroll offset (because the wrapper is inside the scroller,
-    // so its absolute origin is at scroll position 0, not current viewport pos).
+    // then add docPanel scroll offset (because the wrapper's absolute origin
+    // is at scroll position 0, not the current viewport position).
     var wrapperRect = docWrapper.getBoundingClientRect();
     var scrollTop   = docPanel.scrollTop;
     var scrollLeft  = docPanel.scrollLeft;
