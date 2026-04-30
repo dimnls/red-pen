@@ -1359,14 +1359,13 @@
     if (annotations.length === 0) return 'No annotations yet.';
     var gn = globalNoteInput.value.trim();
     var sorted = annotations.slice().sort(function(a,b) { return a.startOffset-b.startOffset; });
-    var out = gn ? 'Overall note: '+gn+'\n\nPlease apply the following edits to the document:\n\n' : 'Please apply the following edits to the document:\n\n';
+    var out = gn ? 'Overall note: '+gn+'\n\nPlease consider the following comments on the document below:\n\n' : 'Please consider the following comments on the document below:\n\n';
     sorted.forEach(function(ann,i) {
-      out+='\u2014 Edit '+(i+1)+' \u2014\n';
+      out+='\u2014 Comment '+(i+1)+' \u2014\n';
       out+='Section: \u201C'+ann.text+'\u201D\n';
-      out+='Comment: '+(ann.comment||'(no comment)')+'\n\n';
+      out+='Note: '+(ann.comment||'(no comment)')+'\n\n';
     });
-    out+='\u2014\nPlease return the full updated document with these changes applied.';
-    return out;
+    return out.trimRight();
   }
 
   function renderExport() {
