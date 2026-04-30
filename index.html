@@ -1288,9 +1288,13 @@
     var rawToRend = new Int32Array(docText.length).fill(-1);
     for (var rp = 0; rp < sourceMap.length; rp++) { var rawP = sourceMap[rp]; if (rawToRend[rawP] === -1) rawToRend[rawP] = rp; }
 
+    // Use docWrapper as the positioning reference — both getBoundingClientRect() calls
+    // are in the same viewport coordinate space, so subtracting wrapperRect gives us
+    // coordinates relative to the wrapper's top-left corner, which is exactly what we
+    // need since #highlight-overlay is absolutely positioned inside #doc-wrapper.
+    // Do NOT add docPanel.scrollTop/scrollLeft here — that would double-count the scroll
+    // offset because wrapperRect already moves as the panel scrolls.
     var wrapperRect = docWrapper.getBoundingClientRect();
-    var scrollTop   = docPanel.scrollTop;
-    var scrollLeft  = docPanel.scrollLeft;
 
     annotations.forEach(function(ann, idx) {
       var rendStart = rawToRend[Math.min(ann.startOffset, docText.length-1)];
@@ -1311,8 +1315,8 @@
         for (var r=0; r<clientRects.length; r++) {
           var cr = clientRects[r]; if (cr.width<1||cr.height<1) continue;
           annRects.push({
-            x: cr.left - wrapperRect.left + scrollLeft,
-            y: cr.top  - wrapperRect.top  + scrollTop,
+            x: cr.left - wrapperRect.left,
+            y: cr.top  - wrapperRect.top,
             w: cr.width,
             h: cr.height
           });
