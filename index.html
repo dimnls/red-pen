@@ -245,6 +245,28 @@
   .paste-hint { font-size: 11px; color: var(--text-muted); font-family: var(--sans); }
   .paste-privacy { font-size: 11px; color: var(--text-light); font-family: var(--sans); }
 
+  .paste-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .btn-demo {
+    padding: 7px 16px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: var(--sans);
+    letter-spacing: 0.01em;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .btn-demo:hover { border-color: var(--text-muted); color: var(--text); background: var(--surface-alt); }
+
   #restore-banner {
     display: none;
     background: var(--surface);
@@ -703,6 +725,9 @@
         <span class="paste-hint">Markdown supported &mdash; headings, bold, lists, tables, code</span>
         <span class="paste-privacy">&#128274; Stays in your browser</span>
       </div>
+      <div class="paste-actions" style="margin-top:14px;">
+        <button class="btn-demo" id="btn-demo">Try demo</button>
+      </div>
     </div>
   </div>
 
@@ -771,6 +796,46 @@
 
   var STORAGE_KEY = 'redpen_session_v1';
 
+  var DEMO_TEXT = [
+    '# The Future of Remote Work',
+    '',
+    'Remote work has fundamentally transformed how organizations operate. Since the global shift in 2020, companies have discovered that productivity does not require physical presence — and in many cases, employees perform better from home.',
+    '',
+    '## Key Benefits',
+    '',
+    'The advantages of remote work are numerous and well-documented:',
+    '',
+    '- **Flexibility** enables workers to structure their day around peak performance windows',
+    '- **Reduced commute time** translates directly into higher quality of life and more focus hours',
+    '- **Access to global talent** means companies are no longer constrained by geography',
+    '- **Cost savings** on office space can be reinvested into tools, salaries, and culture',
+    '',
+    '## The Challenges Nobody Talks About',
+    '',
+    'Despite the enthusiasm, remote work introduces friction that on-site environments naturally resolve. Spontaneous collaboration — the kind that happens in hallways and around whiteboards — is genuinely harder to replicate. Asynchronous communication can create delays that slow decision-making in fast-moving teams.',
+    '',
+    '> "The biggest risk isn\'t productivity loss. It\'s cultural drift — teams losing the shared context that makes trust possible."',
+    '',
+    'Junior employees often struggle most. Without in-person mentorship and osmotic learning, the growth curve flattens. This is rarely discussed openly because it conflicts with the dominant narrative.',
+    '',
+    '## What the Data Actually Shows',
+    '',
+    'Studies are mixed, and selectively cited on both sides. A Stanford study found a **13% productivity increase** among remote workers — but this was in a call center context, with highly measurable output. Knowledge work is harder to quantify.',
+    '',
+    '| Metric | Remote | In-office |',
+    '|---|---|---|',
+    '| Individual output | +8–13% | Baseline |',
+    '| Collaboration quality | Lower | Higher |',
+    '| Employee satisfaction | Higher | Variable |',
+    '| Onboarding speed | Slower | Faster |',
+    '',
+    '## The Path Forward',
+    '',
+    'Hybrid models are emerging as the pragmatic middle ground. Two to three anchor days in the office, with the rest flexible, appears to capture most of the benefits of both modes. The key is intentionality: hybrid done poorly is just the worst of both worlds.',
+    '',
+    'Organizations that will win are those that stop treating remote work as a perk to be negotiated and start treating it as a design problem to be solved.'
+  ].join('\n');
+
   var docText = '';
   var annotations = [];
   var activeAnnotation = null;
@@ -828,6 +893,7 @@
   var btnNotes  = document.getElementById('btn-notes');
   var btnEditor = document.getElementById('btn-editor');
   var btnExport = document.getElementById('btn-export');
+  var btnDemo   = document.getElementById('btn-demo');
 
   btnTheme.addEventListener('click', toggleTheme);
   btnNew.addEventListener('click', function() {
@@ -837,6 +903,18 @@
   btnNotes.addEventListener('click', toggleSidebar);
   btnEditor.addEventListener('click', function() { if (currentView !== 'editor') showEditor(); });
   btnExport.addEventListener('click', function() { if (currentView !== 'export') showExport(); });
+  btnDemo.addEventListener('click', loadDemo);
+
+  function loadDemo() {
+    pasteInput.value = DEMO_TEXT;
+    docText = DEMO_TEXT;
+    _lineStarts = null;
+    var result = buildDoc(docText);
+    sourceMap = result.map;
+    docContent.innerHTML = result.html;
+    showEditor();
+    scheduleSave();
+  }
 
   var saveDebounce = null;
 
