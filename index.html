@@ -380,6 +380,16 @@
   }
   #popover.visible { display: block; }
 
+  .popover-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 12px;
+    font-family: var(--sans);
+  }
+
   .popover-excerpt {
     font-size: 13px;
     font-family: var(--display);
@@ -743,6 +753,7 @@
 </div>
 
 <div id="popover">
+  <div class="popover-label">Add note</div>
   <div class="popover-excerpt" id="popover-excerpt"></div>
   <textarea id="comment-input" placeholder="What should change? (optional)"></textarea>
   <div class="popover-footer">
@@ -1277,12 +1288,6 @@
     var rawToRend = new Int32Array(docText.length).fill(-1);
     for (var rp = 0; rp < sourceMap.length; rp++) { var rawP = sourceMap[rp]; if (rawToRend[rawP] === -1) rawToRend[rawP] = rp; }
 
-    // Use docWrapper as the positioning reference — both getBoundingClientRect() calls
-    // are in the same viewport coordinate space, so subtracting wrapperRect gives us
-    // coordinates relative to the wrapper's top-left corner, which is exactly what we
-    // need since #highlight-overlay is absolutely positioned inside #doc-wrapper.
-    // Do NOT add docPanel.scrollTop/scrollLeft here — that would double-count the scroll
-    // offset because wrapperRect already moves as the panel scrolls.
     var wrapperRect = docWrapper.getBoundingClientRect();
 
     annotations.forEach(function(ann, idx) {
