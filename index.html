@@ -172,6 +172,21 @@
   .btn-small.danger { color: var(--accent); border-color: rgba(200,32,26,0.3); }
   .btn-small.danger:hover { background: var(--accent-light); }
 
+  /* Notes button chevron */
+  #btn-notes { display: none; gap: 5px; }
+  #btn-notes .notes-chevron {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-right: 1.5px solid currentColor;
+    border-top: 1.5px solid currentColor;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  /* sidebar open: chevron points right (collapse) */
+  #btn-notes.sidebar-open .notes-chevron  { transform: rotate(45deg) translateY(-1px); }
+  /* sidebar closed: chevron points left (expand) */
+  #btn-notes.sidebar-closed .notes-chevron { transform: rotate(-135deg) translateY(-1px); }
+
   #main { flex: 1; display: flex; overflow: auto; }
 
   #paste-screen {
@@ -673,7 +688,7 @@
     color: var(--text);
   }
 
-  #btn-new, #btn-notes, #btn-editor, #btn-export { display: none; }
+  #btn-new, #btn-editor, #btn-export { display: none; }
   body[data-view="editor"] #btn-new,
   body[data-view="editor"] #btn-notes,
   body[data-view="editor"] #btn-editor,
@@ -697,7 +712,7 @@
     <span id="save-indicator"></span>
     <button class="btn-icon" id="btn-theme" title="Toggle theme">&#9788;</button>
     <button class="btn" id="btn-new">New</button>
-    <button class="btn" id="btn-notes">Notes &#9664;</button>
+    <button class="btn sidebar-open" id="btn-notes"><span id="btn-notes-label">Notes</span><span class="notes-chevron"></span></button>
     <button class="btn" id="btn-editor">Editor</button>
     <button class="btn" id="btn-export">Export</button>
   </div>
@@ -799,7 +814,7 @@
   var DEMO_TEXT = [
     '# The Future of Remote Work',
     '',
-    'Remote work has fundamentally transformed how organizations operate. Since the global shift in 2020, companies have discovered that productivity does not require physical presence — and in many cases, employees perform better from home.',
+    'Remote work has fundamentally transformed how organizations operate. Since the global shift in 2020, companies have discovered that productivity does not require physical presence \u2014 and in many cases, employees perform better from home.',
     '',
     '## Key Benefits',
     '',
@@ -812,19 +827,19 @@
     '',
     '## The Challenges Nobody Talks About',
     '',
-    'Despite the enthusiasm, remote work introduces friction that on-site environments naturally resolve. Spontaneous collaboration — the kind that happens in hallways and around whiteboards — is genuinely harder to replicate. Asynchronous communication can create delays that slow decision-making in fast-moving teams.',
+    'Despite the enthusiasm, remote work introduces friction that on-site environments naturally resolve. Spontaneous collaboration \u2014 the kind that happens in hallways and around whiteboards \u2014 is genuinely harder to replicate. Asynchronous communication can create delays that slow decision-making in fast-moving teams.',
     '',
-    '> "The biggest risk isn\'t productivity loss. It\'s cultural drift — teams losing the shared context that makes trust possible."',
+    '> "The biggest risk isn\'t productivity loss. It\'s cultural drift \u2014 teams losing the shared context that makes trust possible."',
     '',
     'Junior employees often struggle most. Without in-person mentorship and osmotic learning, the growth curve flattens. This is rarely discussed openly because it conflicts with the dominant narrative.',
     '',
     '## What the Data Actually Shows',
     '',
-    'Studies are mixed, and selectively cited on both sides. A Stanford study found a **13% productivity increase** among remote workers — but this was in a call center context, with highly measurable output. Knowledge work is harder to quantify.',
+    'Studies are mixed, and selectively cited on both sides. A Stanford study found a **13% productivity increase** among remote workers \u2014 but this was in a call center context, with highly measurable output. Knowledge work is harder to quantify.',
     '',
     '| Metric | Remote | In-office |',
     '|---|---|---|',
-    '| Individual output | +8–13% | Baseline |',
+    '| Individual output | +8\u201313% | Baseline |',
     '| Collaboration quality | Lower | Higher |',
     '| Employee satisfaction | Higher | Variable |',
     '| Onboarding speed | Slower | Faster |',
@@ -888,12 +903,13 @@
   var promptTextarea    = document.getElementById('prompt-textarea');
   var resetPromptBtn    = document.getElementById('reset-prompt-btn');
   var pasteInput        = document.getElementById('paste-input');
-  var btnTheme  = document.getElementById('btn-theme');
-  var btnNew    = document.getElementById('btn-new');
-  var btnNotes  = document.getElementById('btn-notes');
-  var btnEditor = document.getElementById('btn-editor');
-  var btnExport = document.getElementById('btn-export');
-  var btnDemo   = document.getElementById('btn-demo');
+  var btnTheme        = document.getElementById('btn-theme');
+  var btnNew          = document.getElementById('btn-new');
+  var btnNotes        = document.getElementById('btn-notes');
+  var btnNotesLabel   = document.getElementById('btn-notes-label');
+  var btnEditor       = document.getElementById('btn-editor');
+  var btnExport       = document.getElementById('btn-export');
+  var btnDemo         = document.getElementById('btn-demo');
 
   btnTheme.addEventListener('click', toggleTheme);
   btnNew.addEventListener('click', function() {
@@ -1124,7 +1140,11 @@
   function updateHeaderButtons() {
     var noteCount = annotations.length > 0 ? ' (' + annotations.length + ')' : '';
     btnTheme.textContent = dark ? '\u2600' : '\u263D';
-    btnNotes.textContent = 'Notes' + noteCount + ' ' + (sidebarVisible ? '\u25C0' : '\u25B6');
+    // Update Notes label text (count only, chevron is CSS)
+    btnNotesLabel.textContent = 'Notes' + noteCount;
+    // Sidebar open = chevron points right (collapse); closed = points left (expand)
+    btnNotes.classList.toggle('sidebar-open',   sidebarVisible);
+    btnNotes.classList.toggle('sidebar-closed', !sidebarVisible);
     btnEditor.className = 'btn' + (currentView === 'editor' ? ' active' : '');
     btnExport.className = 'btn' + (currentView === 'export' ? ' active' : '');
     btnExport.textContent = 'Export' + noteCount;
